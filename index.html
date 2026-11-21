@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Classroom">
+<meta name="apple-mobile-web-app-title" content="คณิต">
 <meta name="theme-color" content="#1B365D">
 <link rel="icon" type="image/png" href="icon-512.png">
 <link rel="apple-touch-icon" href="icon.png">
-<title>Classroom</title>
+<title>คณิต</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:ital,wght@0,400;0,700;1,400&display=swap">
@@ -1258,7 +1258,7 @@ small.over{color:var(--bad)!important;font-weight:700}
   <header class="top">
     <div class="brand">
       <svg viewBox="0 0 46 46" aria-hidden="true"><path d="M5 22 23 6l18 16" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 19v20h26V19" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"/><circle cx="17" cy="30" r="3.4" fill="#2F5BD3"/><circle cx="23" cy="25" r="3.4" fill="#D23F77"/><circle cx="29" cy="30" r="3.4" fill="#D9940F"/></svg>
-      <div><small>ห้องเรียนของเรา</small><h1 id="houseName">Classroom</h1></div>
+      <div><h1 id="houseName">คณิต</h1></div>
     </div>
     <button type="button" class="modebtn" id="modeBtn" data-act="toggleBro" aria-pressed="false"><span class="dot"></span><span class="mlabel">โหมดพี่</span></button>
   </header>
@@ -1567,7 +1567,7 @@ const logs=()=>Object.values(Store.d.log).sort((a,b)=>(b.at||0)-(a.at||0));
 const games=()=>Object.values(Store.d.games).sort((a,b)=>String(a.name).localeCompare(String(b.name),'th'));
 const sessions=()=>Object.values(Store.d.sessions).sort((a,b)=>(b.at||0)-(a.at||0));
 const posts=()=>Object.values(Store.d.posts).sort((a,b)=>((b.pin?1:0)-(a.pin?1:0))||((b.at||0)-(a.at||0)));
-const houseName=()=>(Store.d.meta.house&&Store.d.meta.house.name)||'Classroom';
+const houseName=()=>(Store.d.meta.house&&Store.d.meta.house.name)||'คณิต';
 const kidLabel=k=>k.nick?`${k.code} · ${k.nick}`:k.code;
 
 function pawn(k,cls){if(!k)return'';return `<span class="pawn ${cls||''}" style="--c:${okColor(k.color)}" title="${esc(kidLabel(k))}">${esc(k.code)}</span>`}
@@ -5441,7 +5441,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* footer: when the website itself was last updated (stamped at each release) */
-const SITE_UPDATED='2026-11-21T08:45:00+07:00';
+const SITE_UPDATED='2026-11-21T11:23:00+07:00';
 /* the stamp (real time of the release, never ahead) is only a fallback: the live site always shows GitHub's last commit time of index.html */
 (function(){const el=document.getElementById('siteFoot');if(!el)return;
   const show=iso=>{const d=new Date(iso);if(isNaN(d))return;let t;try{t=d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Bangkok'})+' เวลา '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'})+' น.'}catch(e){t=iso}
