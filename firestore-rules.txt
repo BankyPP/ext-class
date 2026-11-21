@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function google() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    // ใส่ Gmail ของเจ้าของบ้านแทน OWNER_GMAIL (ใช้อีเมลเดียวกับใน Rules เดิมของ Baan Suay)
+    function isOwner() { return google() && request.auth.token.email_verified == true && request.auth.token.email == 'OWNER_GMAIL'; }
+    function isAdmin() {
+      return isOwner() || (google()
+        && exists(/databases/$(database)/documents/meta/admins)
+        && request.auth.uid in get(/databases/$(database)/documents/meta/admins).data.uids);
+    }
+    // เว็บห้องเรียน (ข้อมูลขึ้นต้นด้วย cls_): พี่ของ Baan Suay เปิดโหมดพี่ได้เสมอ + คนที่อนุมัติในเว็บห้องเรียน (แก้ได้เฉพาะข้อมูลห้องเรียน)
+    function isClsAdmin() {
+      return isAdmin() || (google()
+        && exists(/databases/$(database)/documents/cls_meta/admins)
+        && request.auth.uid in get(/databases/$(database)/documents/cls_meta/admins).data.uids);
+    }
+    // collection ส่วนตัวของนักเรียนแต่ละคน: cls_s_ + รหัสลับ 16 ตัวในลิงก์ส่วนตัว (เปิดได้เฉพาะคนที่รู้รหัส + พี่)
+    function isStudentCol(col) { return col.matches('cls_s_[A-Za-z0-9]{16}'); }
+    // คำขอสิทธิ์โหมดพี่: เจ้าของบัญชีส่งเองได้ พี่ลบได้
+    match /adminRequests/{uid} {
+      allow read: if signedIn();
+      allow create, update: if google() && request.auth.uid == uid;
+      allow delete: if isAdmin();
+    }
+    match /cls_adminRequests/{uid} {
+      allow read: if signedIn();
+      allow create, update: if google() && request.auth.uid == uid;
+      allow delete: if isClsAdmin();
+    }
+    // ห้องเกมคำต้องห้าม: ทุกคนที่เปิดเว็บสร้างห้อง เข้าห้อง และเล่นในห้องได้ พี่ลบห้องได้
+    match /rooms/{code} {
+      allow read, create, update: if signedIn() && code.matches('^[0-9]{6}$');
+      allow delete: if isAdmin();
+    }
+    // ข้อมูลบ้าน: ทุกคนอ่านได้ น้องเพิ่มผลควิซ/เกม/โพสต์ได้ ที่เหลือแก้ได้เฉพาะพี่
+    // ข้อมูลห้องเรียน: ทุกคนอ่านได้แค่บทเรียน (cls_lessons, cls_meta) · รายชื่อนักเรียนและข้อมูลอื่นอ่านได้เฉพาะพี่
+    //   นักเรียนอ่าน collection ของตัวเองได้ และส่งผลควิซใหม่เข้าไปได้ แต่แก้/ลบไม่ได้ และเขียนทับโปรไฟล์ (me) ไม่ได้
+    match /{col}/{id} {
+      allow read: if signedIn() && (!col.matches('cls_.*') || col in ['cls_lessons', 'cls_meta'] || isStudentCol(col) || isClsAdmin());
+      allow create: if signedIn() && (col in ['log', 'posts', 'sessions'] || (isStudentCol(col) && id != 'me'));
+      allow write: if isAdmin() || (col.matches('cls_.*') && isClsAdmin());
+    }
+  }
+}
