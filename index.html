@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="คณิต">
+<meta name="apple-mobile-web-app-title" content="Classroom">
 <meta name="theme-color" content="#1B365D">
 <link rel="icon" type="image/png" href="icon-512.png">
 <link rel="apple-touch-icon" href="icon.png">
-<title>คณิต</title>
+<title>Classroom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:ital,wght@0,400;0,700;1,400&display=swap">
@@ -1258,7 +1258,7 @@ small.over{color:var(--bad)!important;font-weight:700}
   <header class="top">
     <div class="brand">
       <svg viewBox="0 0 46 46" aria-hidden="true"><path d="M5 22 23 6l18 16" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 19v20h26V19" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"/><circle cx="17" cy="30" r="3.4" fill="#2F5BD3"/><circle cx="23" cy="25" r="3.4" fill="#D23F77"/><circle cx="29" cy="30" r="3.4" fill="#D9940F"/></svg>
-      <div><h1 id="houseName">คณิต</h1></div>
+      <div><h1 id="houseName">Classroom</h1></div>
     </div>
     <button type="button" class="modebtn" id="modeBtn" data-act="toggleBro" aria-pressed="false"><span class="dot"></span><span class="mlabel">โหมดพี่</span></button>
   </header>
@@ -1340,7 +1340,7 @@ function gateScreen(done){
     else{g.querySelector('#gateErr').hidden=false;i.value='';i.focus()}});
 }
 
-const SUBJECTS=[['chem','เคมี'],['phys','ฟิสิกส์'],['bio','ชีวะ'],['math','คณิต'],['eng','อังกฤษ'],['other','อื่นๆ']];
+const SUBJECTS=[['math','คณิต']];
 const subjName=id=>(SUBJECTS.find(s=>s[0]===id)||[0,'อื่นๆ'])[1];
 const BANDS=[['kinder','อนุบาล'],['pri1','ประถมต้น'],['pri2','ประถมปลาย'],['sec','มัธยม (ไม่ระบุช่วง)'],['sec1','มัธยมต้น'],['sec2','มัธยมปลาย'],['uni','มหาวิทยาลัย']];
 const bandName=id=>(BANDS.find(b=>b[0]===id)||[0,''])[1];
@@ -1567,7 +1567,7 @@ const logs=()=>Object.values(Store.d.log).sort((a,b)=>(b.at||0)-(a.at||0));
 const games=()=>Object.values(Store.d.games).sort((a,b)=>String(a.name).localeCompare(String(b.name),'th'));
 const sessions=()=>Object.values(Store.d.sessions).sort((a,b)=>(b.at||0)-(a.at||0));
 const posts=()=>Object.values(Store.d.posts).sort((a,b)=>((b.pin?1:0)-(a.pin?1:0))||((b.at||0)-(a.at||0)));
-const houseName=()=>(Store.d.meta.house&&Store.d.meta.house.name)||'คณิต';
+const houseName=()=>(Store.d.meta.house&&Store.d.meta.house.name)||'Classroom';
 const kidLabel=k=>k.nick?`${k.code} · ${k.nick}`:k.code;
 
 function pawn(k,cls){if(!k)return'';return `<span class="pawn ${cls||''}" style="--c:${okColor(k.color)}" title="${esc(kidLabel(k))}">${esc(k.code)}</span>`}
@@ -1639,7 +1639,7 @@ function stickerSVG(s,got){
 /* ---------- state ---------- */
 const S={
   tab:LS.get('tab','learn'), bro:LS.get('bro',false), lb:'month',
-  learn:{subj:'all',kid:'all',open:null}, quiz:null, confirm:null,
+  learn:{subj:'math',kid:'all',open:null}, quiz:null, confirm:null,
   gameKind:'all', stickerKid:null, tool:LS.get('tool',null),
   bs:LS.get('bs',null), uno:LS.get('uno',null), score:LS.get('score',null), flip:LS.get('flip',null), poker:LS.get('poker',null), catan:(c=>{if(c&&c.view)c.view.chat=false;if(c&&c.chat)delete c.chat;return c})(LS.get('catan',null)),
   timer:{total:60,left:60,run:false,endAt:0,done:false}, rnd:{pool:null,pick:null,spinning:false}, dice:{n:2,vals:[3,5]}, coin:null,
@@ -1920,7 +1920,7 @@ function vLearn(){
   return `<section class="sec">
     <div class="sec-head"><div><h2>ห้องเรียน</h2><p>แต่ละบทแบ่งเป็นหัวข้อ พร้อมจุดประสงค์และระดับความยาก ท้ายบทมีควิซหลายแบบ MCQ · True/False · Matching · Cloze · MEQ แบ่งเป็นพาร์ทได้</p></div><div class="btns">${S.bro||kids().length?`<button class="btn" data-act="monOpen">${S.bro?'ติดตามคะแนน':CLS?'คะแนนของฉัน':'ดูผลควิซ'}${S.bro&&monPendAll()?` <span class="tag pend">รอตรวจ ${monPendAll()}</span>`:''}</button>`:''}${S.bro?'<button class="btn primary" data-act="lessonForm">เพิ่มบทเรียน</button>':''}</div></div>
     ${CLS&&!S.bro&&!kids().length&&Store.mode!=='loading'?`<div class="banner">${ME?'ลิงก์นี้ใช้ไม่ได้แล้ว ขอลิงก์ใหม่จากพี่':'เปิดเว็บจากลิงก์ส่วนตัวที่พี่ส่งให้ เพื่อทำควิซและดูคะแนนของตัวเอง'}</div>`:''}
-    <div class="chips"><button class="chip" data-act="subj" data-id="all" aria-pressed="${S.learn.subj==='all'}">ทุกวิชา<span class="n">${all.length}</span></button>${SUBJECTS.filter(s=>s[0]!=='other'||cnt('other')).map(([id,n])=>`<button class="chip" data-act="subj" data-id="${id}" aria-pressed="${S.learn.subj===id}">${n}<span class="n">${cnt(id)}</span></button>`).join('')}</div>
+    <div class="chips">${SUBJECTS.filter(s=>s[0]!=='other'||cnt('other')).map(([id,n])=>`<button class="chip" data-act="subj" data-id="${id}" aria-pressed="${S.learn.subj===id}">${n}<span class="n">${cnt(id)}</span></button>`).join('')}</div>
     <div class="chips"><span class="label">เหมาะกับ</span><button class="chip" data-act="lkid" data-id="all" aria-pressed="${S.learn.kid==='all'}">ทุกคน</button>${kids().map(k=>pawnBtn(k,'lkid',S.learn.kid===k.id,'sm')).join('')}</div>
     ${list.length?`<div class="grid">${list.map(card).join('')}</div>`
       :`<div class="empty"><b>${all.length?'ไม่มีบทเรียนที่ตรงกับตัวกรอง':'ยังไม่มีบทเรียน'}</b>${S.bro?'<p>สร้างบทแล้วใส่หัวข้อ จุดประสงค์ ดาวความยาก และโจทย์</p><button class="btn primary" data-act="lessonForm">เพิ่มบทเรียน</button>':'<p>ให้พี่เปิดโหมดพี่แล้วเพิ่มบทเรียน</p>'}</div>`}
@@ -3186,7 +3186,7 @@ function topicOpts(d,cur,withMid){
 }
 function lessonForm(id,part,qf){
   const l=id?Store.d.lessons[id]:null;
-  S.draft={id:id||null,subject:l?l.subject:'chem',title:l?l.title:'',levels:l?(l.levels||[]).slice():[],content:l?(l.content||''):'',
+  S.draft={id:id||null,subject:l?l.subject:'math',title:l?l.title:'',levels:l?(l.levels||[]).slice():[],content:l?(l.content||''):'',
     topics:l&&l.topics?l.topics.map(t=>({tid:t.tid||('t'+uid()),name:t.name||'',stars:+t.stars||0,goals:(t.goals||[]).join('\n'),story:t.story||''})):[blankT()],story:l?isStory(l):false,checks:l?(l.checks||[]).slice():[],
     midAfter:l?(l.midAfter||''):'',bulkTopic:'',hidden:null,
     questions:l?(l.questions||[]).map(draftQ):[],parts:l&&l.parts?JSON.parse(JSON.stringify(l.parts)):{},
@@ -5441,7 +5441,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* footer: when the website itself was last updated (stamped at each release) */
-const SITE_UPDATED='2026-11-21T11:23:00+07:00';
+const SITE_UPDATED='2026-11-21T12:04:00+07:00';
 /* the stamp (real time of the release, never ahead) is only a fallback: the live site always shows GitHub's last commit time of index.html */
 (function(){const el=document.getElementById('siteFoot');if(!el)return;
   const show=iso=>{const d=new Date(iso);if(isNaN(d))return;let t;try{t=d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Bangkok'})+' เวลา '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'})+' น.'}catch(e){t=iso}
