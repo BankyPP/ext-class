@@ -219,6 +219,10 @@ ul.plain{list-style:none;margin:0;padding:0}
 .czkey{font:600 .95rem var(--f-head);color:var(--good)}
 .czbank{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .czbank .chip.used{opacity:.45}
+.czbanks{display:grid;gap:10px}
+.czbanks .pprow .field,.czbanks .pprow textarea,.czbanks .pprow small{grid-column:1/-1}
+.czbanks .pprow{grid-template-columns:auto minmax(0,1fr)}
+.cbnote{font-size:.9rem;padding:8px 10px;border-radius:10px;background:var(--soft,rgba(0,0,0,.04))}
 .review li.rvpart{grid-template-columns:minmax(0,1fr) auto;background:none;padding:10px 4px 0;font:600 .95rem var(--f-head)}
 .pparts{display:grid;gap:10px}
 .pprow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,auto);gap:8px;align-items:center;padding-top:10px;border-top:1px dashed var(--line)}
@@ -1799,6 +1803,12 @@ const choiceName=(it,j)=>qType(it)==='tf'?TF_L[j]:LET[j];
 const CZ_RE=/\[\[([^\]]*)\]\]/g;
 const czKeys=it=>{const o=[];String(it&&it.q||'').replace(CZ_RE,(_,a)=>{o.push(a.split('/').map(x=>x.trim()).filter(Boolean));return ''});return o};
 const czNorm=v=>String(v==null?'':v).toLowerCase().replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/\s+/g,' ').trim();
+/* shared word bank (คลังคำร่วม): one bank of a set used by several cloze questions the brother picks */
+const cbOf=(banks,it)=>{if(!it||qType(it)!=='cloze')return null;const k=qKey(it);return (banks||[]).find(b=>b.sc===(it.topic||'final')&&(b.qids||[]).includes(k))||null};
+const cbName=(b,k)=>b&&b.name?b.name:'คลังคำ '+(k+1);
+function cbWords(qs,b){const seen=new Set(),out=[];const add=w=>{w=String(w==null?'':w).trim();const n=czNorm(w);if(!n||seen.has(n))return;seen.add(n);out.push(w)};
+  (qs||[]).forEach(q=>{if(qType(q)==='cloze'&&(q.topic||'final')===b.sc&&(b.qids||[]).includes(qKey(q)))czKeys(q).forEach(x=>add(x[0]))});
+  (Array.isArray(b.extra)?b.extra:String(b.extra||'').split('\n')).forEach(add);return out}
 const czOk=(alts,v)=>!!czNorm(v)&&alts.some(a=>czNorm(a)===czNorm(v));
 /* Matching: pairs left ↔ right, plus optional extra right-side items that match nothing */
 const mPairs=it=>(it&&it.pairs||[]).filter(p=>p&&String(p.l||'').trim()&&String(p.r||'').trim());
@@ -2334,7 +2344,11 @@ function vQuiz(){
     let n0=0;const src=String(it.q||'').replace(CZ_RE,()=>'\u27E6'+(n0++)+'\u27E7');
     qhtml=md(src).replace(/\u27E6(\d+)\u27E7/g,(_,x)=>{x=+x;const v=a.blanks[x]||'';const ok=rev&&czOk(ks[x]||[],v);const w=Math.max(9,v.length+2);
       return `<span class="cz ${rev?(ok?'right':'wrong'):''}"><input id="cz${x}" class="czin" data-input="cz" data-k="${x}" value="${esc(v)}" size="${w}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="ช่องว่างที่ ${x+1}" ${lock?'readonly':''}>${rev&&!ok?`<b class="czkey">${esc((ks[x]||[''])[0])}</b>`:''}</span>`});
-    if(it.bank){const words=[...ks.map(x=>x[0]||''),...(it.extra||[])].filter(w=>String(w).trim());if(!a.bord||a.bord.length!==words.length)a.bord=shuffle(words.map((_,j)=>j));
+    const sb=cbOf(l.banks,it);
+    if(sb){const words=cbWords(l.questions,sb);q.bk=q.bk||{};let ord=q.bk[sb.bid];if(!ord||ord.length!==words.length)ord=q.bk[sb.bid]=shuffle(words.map((_,j)=>j));
+      const used=new Set(),mine=[];q.order.forEach((ix,p)=>{const x=qItem(q,p);const o=x&&cbOf(l.banks,x);if(o&&o.bid===sb.bid){mine.push(p+1);((q.ans[p]||{}).blanks||[]).forEach(v=>{if(czNorm(v))used.add(czNorm(v))})}});
+      body=`<div class="czbank"><span class="label">คลังคำ${mine.length>1?' · ใช้ร่วมกันข้อ '+mine.join(', '):''}</span>${ord.map(j=>`<button type="button" class="chip ${used.has(czNorm(words[j]))?'used':''}" data-act="czBank" data-id="${esc(words[j])}" ${lock?'disabled':''}>${esc(words[j])}</button>`).join('')}</div>`}
+    else if(it.bank){const words=[...ks.map(x=>x[0]||''),...(it.extra||[])].filter(w=>String(w).trim());if(!a.bord||a.bord.length!==words.length)a.bord=shuffle(words.map((_,j)=>j));
       const used=new Set(a.blanks.map(czNorm));
       body=`<div class="czbank"><span class="label">คลังคำ</span>${a.bord.map(j=>`<button type="button" class="chip ${used.has(czNorm(words[j]))?'used':''}" data-act="czBank" data-id="${esc(words[j])}" ${lock?'disabled':''}>${esc(words[j])}</button>`).join('')}</div>`}
     if(a.blanks.some(x=>x)&&!lock)body+='<button class="btn sm ghost" data-act="clearPick">ล้างคำตอบข้อนี้</button>';
@@ -3105,7 +3119,7 @@ function adminAccess(){
     ${reqs.length?`<div class="panel"><span class="label">คำขอสิทธิ์</span>${reqs.map(r=>`<div class="kidrow"><span class="pawn" style="--c:#8A6A3B">${esc((r.name||'?').slice(0,2))}</span><div><b>${esc(r.name||'ไม่มีชื่อ')}</b><div class="small muted">${ago(r.at)}</div></div><div class="btns"><button class="btn sm primary" data-act="approveAdmin" data-id="${esc(r.id)}">อนุมัติ</button><button class="btn sm ghost" data-act="rejectAdmin" data-id="${esc(r.id)}">ปฏิเสธ</button></div></div>`).join('')}</div>`:''}
   </section>`;
 }
-function blankQ(type,topic,part){const t=type||'mcq';return {type:t,topic:topic||'',part:part||'',q:'',choices:['','','',''],answer:0,explain:'',key:'',kw:'',max:2,pairs:t==='match'?[{l:'',r:''},{l:'',r:''},{l:'',r:''}]:[],extra:'',bank:false,qid:'',born:null}}
+function blankQ(type,topic,part){const t=type||'mcq';return {type:t,topic:topic||'',part:part||'',q:'',choices:['','','',''],answer:0,explain:'',key:'',kw:'',max:2,pairs:t==='match'?[{l:'',r:''},{l:'',r:''},{l:'',r:''}]:[],extra:'',bank:false,qid:'q'+uid(),born:null}}
 /* a saved question as an editable draft (every type keeps its own fields) */
 function draftQ(q){const t=qType(q);const b=blankQ(t,q.topic||'',q.part||'');Object.assign(b,{q:q.q||'',explain:q.explain||'',qid:qKey(q),born:+q.born||0});
   if(t==='meq'){b.key=q.key!=null?q.key:(q.answer||'');b.kw=q.kw||'';b.max=qMax(q)}
@@ -3128,6 +3142,18 @@ function partsPanel(d){const sc=d.qf;if(!sc||sc==='all')return '';const ps=draft
       <input type="text" id="pp${k}_note" class="ppnote" value="${esc(p.note||'')}" placeholder="คำสั่งของพาร์ท (ไม่ใส่ก็ได้) เช่น Fill in the blanks with words from the story" aria-label="คำสั่งของ Part ${k+1}"></div>`).join(''):'<p class="muted small">ชุดนี้ยังไม่แบ่งพาร์ท โจทย์ทุกข้ออยู่รวมกัน</p>'}
     <div class="btns"><button type="button" class="btn sm" data-act="ppAdd">+ เพิ่มพาร์ท</button></div>
     <small class="muted">น้องทำทีละพาร์ทตามลำดับ · ตั้งแบบโจทย์ของพาร์ทไว้ ปุ่มเพิ่มโจทย์ของพาร์ทนั้นจะเป็นแบบนั้นให้ · ถ้าไม่ได้เลือกพาร์ทให้โจทย์ จะไปอยู่พาร์ทแรกที่แบบตรงกัน</small></div>`}
+/* shared word banks of the set being shown: pick which cloze questions use each bank */
+function banksPanel(d){const sc=d.qf;if(!sc||sc==='all')return '';d.banks=d.banks||[];const bs=d.banks.filter(b=>b.sc===sc);
+  const cz=d.questions.map((q,i)=>({q,i})).filter(x=>x.q.type==='cloze'&&(x.q.topic||'final')===sc);
+  if(!cz.length&&!bs.length)return '';
+  return `<div class="panel czbanks" data-sc="${esc(sc)}"><b class="label">คลังคำร่วม (word bank ใช้หลายข้อ)${bs.length?' · '+bs.length+' คลัง':''}</b>
+    ${bs.map((b,k)=>{const ws=cbWords(d.questions,b);return `<div class="pprow"><span class="ppno">คลังคำ ${k+1}</span><input type="text" id="cb${k}_name" value="${esc(b.name||'')}" placeholder="ชื่อคลังคำ (ไม่ใส่ก็ได้)" aria-label="ชื่อคลังคำ ${k+1}">
+      <div class="field"><span>ใช้กับข้อไหนบ้าง</span>${cz.length?`<div class="pick">${cz.map(({q,i})=>{const o=cbOf(d.banks,q);return `<label class="opt" title="${esc(qLine(q).slice(0,90))}"><input type="checkbox" id="cb${k}_q${i}" data-change="cbPick" data-k="${k}" data-i="${i}" ${o===b?'checked':''}><span>ข้อ ${i+1}${o&&o!==b?' (อยู่ใน '+esc(cbName(o,bs.indexOf(o)))+')':''}</span></label>`}).join('')}</div>`:'<small class="muted">ชุดนี้ยังไม่มีโจทย์ Cloze</small>'}</div>
+      <textarea class="grow" id="cb${k}_x" rows="${Math.max(1,rowsOf(b.extra))}" placeholder="คำหลอกในคลังนี้ บรรทัดละ 1 (ไม่ใส่ก็ได้)" aria-label="คำหลอกของคลังคำ ${k+1}">${esc(b.extra||'')}</textarea>
+      <small class="muted">${ws.length?'น้องเห็น '+ws.length+' คำ: '+ws.map(esc).join(' · '):'ยังไม่มีคำ ติ๊กข้อที่ใช้คลังนี้ก่อน'}</small>
+      <div class="btns"><button type="button" class="btn sm danger" data-act="cbDel" data-id="${k}">ลบคลังคำนี้</button></div></div>`}).join('')}
+    <div class="btns"><button type="button" class="btn sm" data-act="cbAdd">+ เพิ่มคลังคำร่วม</button></div>
+    <small class="muted">คำในคลัง = คำตอบทุกช่องของข้อที่ติ๊ก (ช่องที่ตอบได้หลายแบบใช้คำแรก · คำซ้ำโชว์ครั้งเดียว) + คำหลอก · 1 ข้ออยู่ได้คลังเดียว · ข้อในคลังร่วมไม่ใช้คลังคำเฉพาะข้อ · น้องเห็นคลังเดียวกันทุกข้อ คำที่เติมแล้วในข้อไหนก็ตามจะจางลง</small></div>`}
 /* one question in the editor; the fields follow its type */
 function qEditHTML(d,q,i){const sc=q.topic||'final';const ps=draftParts(d,sc);const t=q.type;const up=qNb(d,i,-1),dn=qNb(d,i,1);
   const typeSel=`<select id="q${i}_type" data-change="qtype" aria-label="แบบโจทย์">${QT.map(([v,n,sub])=>`<option value="${v}" ${t===v?'selected':''}>${n} · ${sub}</option>`).join('')}</select>`;
@@ -3145,8 +3171,9 @@ function qEditHTML(d,q,i){const sc=q.topic||'final';const ps=draftParts(d,sc);co
         <small class="muted">น้องเห็นฝั่งซ้ายเรียงตามนี้ ฝั่งขวาสลับให้เอง คู่ละ 1 คะแนน</small>`;
   else if(t==='cloze'){const nb=czKeys(q).length;f=`<textarea class="grow" id="q${i}_q" rows="${Math.max(3,rowsOf(q.q))}" placeholder="The little [[kitten]] got lost in the [[rain]].&#10;ช่องว่างใส่ [[คำตอบ]] · ตอบได้หลายแบบใช้ / คั่น เช่น [[run/ran]]" aria-label="ข้อความเติมคำข้อ ${i+1}" lang="en">${esc(q.q)}</textarea>
         <small class="muted">ช่องว่าง ${nb} ช่อง · ช่องละ 1 คะแนน · ตรวจไม่สนตัวพิมพ์เล็กใหญ่และเว้นวรรคเกิน</small>
-        <label class="check"><input type="checkbox" id="q${i}_bank" ${q.bank?'checked':''}> โชว์คลังคำให้แตะเลือก (word bank)</label>
-        <textarea class="grow" id="q${i}_x" rows="${Math.max(1,rowsOf(q.extra))}" placeholder="คำหลอกในคลังคำ บรรทัดละ 1 (ไม่ใส่ก็ได้)" aria-label="คำหลอกของข้อ ${i+1}">${esc(q.extra)}</textarea>`}
+        ${(()=>{const sb=cbOf(d.banks,q);if(!sb)return `<label class="check"><input type="checkbox" id="q${i}_bank" ${q.bank?'checked':''}> โชว์คลังคำให้แตะเลือก (word bank)</label>
+        <textarea class="grow" id="q${i}_x" rows="${Math.max(1,rowsOf(q.extra))}" placeholder="คำหลอกในคลังคำ บรรทัดละ 1 (ไม่ใส่ก็ได้)" aria-label="คำหลอกของข้อ ${i+1}">${esc(q.extra)}</textarea>`;const bs=(d.banks||[]).filter(b=>b.sc===sb.sc);const ns=d.questions.map((x,j)=>cbOf(d.banks,x)===sb?j+1:0).filter(Boolean);
+          return `<p class="cbnote">ใช้ <b>${esc(cbName(sb,bs.indexOf(sb)))}</b> ร่วมกับข้อ ${ns.join(', ')} · แก้คำหลอกและข้อที่ใช้ได้ที่กล่อง "คลังคำร่วม" ด้านบน</p>`})()}`}
   else f=`<textarea id="q${i}_q" style="min-height:70px" placeholder="โจทย์" aria-label="โจทย์ข้อ ${i+1}">${esc(q.q)}</textarea>`+q.choices.map((c,j)=>`<div class="crow"><input type="radio" name="q${i}_ans" value="${j}" ${q.answer===j?'checked':''} aria-label="ตัวเลือก ${LET[j]} ถูก"><textarea class="grow" id="q${i}_c${j}" rows="${rowsOf(c)}" placeholder="ตัวเลือก ${LET[j]}" aria-label="ตัวเลือก ${LET[j]} ของข้อ ${i+1}">${esc(c)}</textarea></div>`).join('')+`<div class="btns"><button class="btn sm ghost" data-act="cAdd" data-id="${i}" ${q.choices.length>=6?'disabled':''}>เพิ่มตัวเลือก</button>${q.choices.length>2?`<button class="btn sm ghost" data-act="cDel" data-id="${i}">ลดตัวเลือก</button>`:''}</div><small class="muted">กดวงกลมหน้าตัวเลือกที่ถูก</small>`;
   return `<fieldset class="qedit" data-drag="q" data-ix="${i}" ${qfShow(d,q)?'':'hidden'}><legend><button type="button" class="grip" data-grip aria-label="ลากเพื่อย้าย"><svg viewBox="0 0 12 18" aria-hidden="true"><circle cx="3" cy="3" r="1.6"/><circle cx="9" cy="3" r="1.6"/><circle cx="3" cy="9" r="1.6"/><circle cx="9" cy="9" r="1.6"/><circle cx="3" cy="15" r="1.6"/><circle cx="9" cy="15" r="1.6"/></svg></button>ข้อ ${i+1} · ${qtName(t)}</legend>
       <div class="row2">${typeSel}
@@ -3190,9 +3217,11 @@ function lessonForm(id,part,qf){
     topics:l&&l.topics?l.topics.map(t=>({tid:t.tid||('t'+uid()),name:t.name||'',stars:+t.stars||0,goals:(t.goals||[]).join('\n'),story:t.story||''})):[blankT()],story:l?isStory(l):false,checks:l?(l.checks||[]).slice():[],
     midAfter:l?(l.midAfter||''):'',bulkTopic:'',hidden:null,
     questions:l?(l.questions||[]).map(draftQ):[],parts:l&&l.parts?JSON.parse(JSON.stringify(l.parts)):{},
+    banks:l&&Array.isArray(l.banks)?l.banks.map(b=>({bid:b.bid||('b'+uid()),sc:b.sc||'final',name:b.name||'',extra:(b.extra||[]).join('\n'),qids:(b.qids||[]).slice()})):[],
     example:l?!!l.example:false,clock:Object.assign({},CLOCK_DEF,(l&&l.clock)||{})};
   /* new quiz sets start hidden from the kids until the brother opens them */
   S.draft.hidden=l?(l.hidden||[]).slice():['mid','final',...S.draft.topics.flatMap(t=>[t.tid,t.tid+VS,t.tid+SSX])];
+  {const seen=new Set();S.draft.questions.forEach(q=>{if(!q.qid||seen.has(q.qid))q.qid='q'+uid();seen.add(q.qid)})}
   S.draft.part=part==='quiz'&&l?'quiz':'lesson';S.draft.qf=qf||'all';
   paintLessonForm();
 }
@@ -3243,6 +3272,7 @@ ${d.part!=='quiz'?`
     <h3>โจทย์${d.questions.length?' · '+esc(qtSummary(d.questions)):''}</h3>
     ${qfBar(d)}
     ${partsPanel(d)}
+    ${banksPanel(d)}
     ${(()=>{const vs=draftVocab(d,d.qf);return vs?`<div class="panel ckgen"><span class="small">ชุดนี้ใช้คำศัพท์ ${vs.length} คำ · สร้าง MCQ "คำนี้แปลว่าอะไร" ให้ทุกคำที่ยังไม่มีโจทย์ในชุดนี้ แล้วแก้ต่อเองได้</span><button type="button" class="btn sm" data-act="ckGen" ${vs.length?'':'disabled'}>สร้างโจทย์คำศัพท์อัตโนมัติ</button></div>`:''})()}
     ${qListHTML(d)}
     <small class="muted">โจทย์ใหม่จะอยู่ในชุดที่ดูอยู่ (หรือชุดเดียวกับข้อล่าสุด) เปลี่ยนได้ที่ช่อง "อยู่ในชุด" และ "พาร์ท"</small>
@@ -3276,6 +3306,9 @@ function syncDraft(){
     if(q.type==='match'&&!q.pairs.length)q.pairs=[{l:'',r:''},{l:'',r:''},{l:'',r:''}];
     if(q.type==='tf'&&q.answer>1)q.answer=0;if(q.type==='mcq'&&q.answer>=q.choices.length)q.answer=0;
   });
+  const cbp=$('#sheetCard .czbanks');if(cbp&&cbp.dataset.sc===d.qf){(d.banks||[]).filter(b=>b.sc===d.qf).forEach((b,k)=>{const n=document.getElementById('cb'+k+'_name');if(n)b.name=n.value;const x=document.getElementById('cb'+k+'_x');if(x)b.extra=x.value;
+    const shown=new Set(),on=[];d.questions.forEach((q,i)=>{const c=document.getElementById('cb'+k+'_q'+i);if(c){shown.add(q.qid);if(c.checked)on.push(q.qid)}});
+    b.qids=[...(b.qids||[]).filter(id=>!shown.has(id)),...on]})}
   const pp=$('#sheetCard .pparts');if(pp&&pp.dataset.sc===d.qf){d.parts=d.parts||{};
     d.parts[d.qf]=draftParts(d,d.qf).map((x,k)=>({pid:x.pid||('p'+uid()),name:val('pp'+k+'_name'),kind:(document.getElementById('pp'+k+'_kind')||{}).value||'',note:val('pp'+k+'_note')}))}
 }
@@ -3328,10 +3361,12 @@ async function saveLesson(){
   if(bad){toast('มี MCQ ที่ตัวเลือกไม่ครบ หรือยังไม่ได้เลือกคำตอบที่ถูก');return}
   if(qs.some(q=>q.type==='match'&&q.pairs.length<2)){toast('Matching ต้องมีอย่างน้อย 2 คู่ที่ใส่ครบทั้งซ้ายและขวา');return}
   if(qs.some(q=>q.type==='cloze'&&!czKeys(q).length)){toast('Cloze ต้องมีช่องว่าง [[คำตอบ]] อย่างน้อย 1 ช่อง');return}
+  const qBy=new Map(qs.map(x=>[x.qid,x]));const scs=[...tids,'mid','final'];
+  const banks=(d.banks||[]).filter(b=>scs.includes(b.sc)).map(b=>({bid:b.bid,sc:b.sc,name:(b.name||'').trim(),extra:lines(b.extra),qids:[...new Set(b.qids||[])].filter(k=>{const x=qBy.get(k);return x&&x.type==='cloze'&&x.topic===b.sc})})).filter(b=>b.qids.length||b.extra.length||b.name);
   const parts={};[...tids,'mid','final'].forEach(x=>{if(d.parts&&Object.prototype.hasOwnProperty.call(d.parts,x))parts[x]=(d.parts[x]||[]).map(p=>({pid:p.pid,name:(p.name||'').trim(),kind:p.kind||'',note:(p.note||'').trim()}))});
   const id=d.id||uid();const old=d.id&&Store.d.lessons[d.id];
   const ck0=Object.assign({},CLOCK_DEF,d.clock||{});if(ck0.per==='story'&&!d.story)ck0.per='set';
-  await Store.put('lessons',id,{subject:d.subject,title:d.title,levels:d.levels,story:!!d.story,clock:ck0,checks,topics,midAfter:topics.some(t=>t.tid===d.midAfter)?d.midAfter:'',hidden:(d.hidden||[]).filter(x=>x==='mid'||x==='final'||tids.includes(x)||sxKeys.includes(x)),content:d.content,questions:qs,parts,example:d.example&&!!old,at:old&&old.at||Date.now()});
+  await Store.put('lessons',id,{subject:d.subject,title:d.title,levels:d.levels,story:!!d.story,clock:ck0,checks,topics,midAfter:topics.some(t=>t.tid===d.midAfter)?d.midAfter:'',hidden:(d.hidden||[]).filter(x=>x==='mid'||x==='final'||tids.includes(x)||sxKeys.includes(x)),content:d.content,questions:qs,parts,banks,example:d.example&&!!old,at:old&&old.at||Date.now()});
   closeSheet();S.learn.open=id;toast('บันทึกบทเรียนแล้ว');render();
 }
 
@@ -3515,6 +3550,8 @@ const ACT={
   qAdd(t){syncDraft();const d=S.draft,a=d.questions;const tp0=d.topics[0];const cur=d.qf&&d.qf!=='all'?d.qf:(a.length?a[a.length-1].topic:(tp0?tp0.tid:'final'));a.push(blankQ(t.dataset.id,cur,t.dataset.part||''));paintLessonForm()},
   mpAdd(t){syncDraft();S.draft.questions[+t.dataset.id].pairs.push({l:'',r:''});paintLessonForm()},
   mpDel(t){syncDraft();const q=S.draft.questions[+t.dataset.id];if(q.pairs.length>1)q.pairs.pop();paintLessonForm()},
+  cbAdd(){syncDraft();const d=S.draft;d.banks=d.banks||[];d.banks.push({bid:'b'+uid(),sc:d.qf,name:'',extra:'',qids:[]});paintLessonForm()},
+  cbDel(t){syncDraft();const d=S.draft;const b=(d.banks||[]).filter(x=>x.sc===d.qf)[+t.dataset.id];if(!b)return;d.banks=d.banks.filter(x=>x!==b);paintLessonForm()},
   ppAdd(){syncDraft();const d=S.draft;const ps=draftParts(d,d.qf).slice();ps.push({pid:'p'+uid(),name:'',kind:'',note:''});d.parts=d.parts||{};d.parts[d.qf]=ps;paintLessonForm()},
   ppDel(t){syncDraft();const d=S.draft;const ps=draftParts(d,d.qf).slice();const k=+t.dataset.id;const gone=ps[k];if(!gone)return;ps.splice(k,1);d.parts[d.qf]=ps;
     let n=0;d.questions.forEach(q=>{if((q.topic||'final')===d.qf&&q.part===gone.pid){q.part='';n++}});paintLessonForm();toast(n?'ลบพาร์ทแล้ว โจทย์ '+n+' ข้อย้ายไปพาร์ทที่แบบตรงกัน (หรือพาร์ทแรก)':'ลบพาร์ทแล้ว')},
@@ -4860,6 +4897,8 @@ window.addEventListener('pagehide',quizAway);
 document.addEventListener('change',e=>{
   const c=e.target.dataset&&e.target.dataset.change;if(!c)return;
   if(c==='qtype'||c==='lfStory'||c==='lfCk'||c==='lfClk'){syncDraft();paintLessonForm()}
+  if(c==='cbPick'&&S.draft){syncDraft();const d=S.draft;const b=(d.banks||[]).filter(x=>x.sc===d.qf)[+e.target.dataset.k];const q=d.questions[+e.target.dataset.i];
+    if(b&&q&&e.target.checked)d.banks.forEach(o=>{if(o!==b)o.qids=(o.qids||[]).filter(x=>x!==q.qid)});paintLessonForm()}
   if(c==='qMatch'&&S.quiz&&S.quiz.ans){const a=S.quiz.ans[S.quiz.i];if(a&&!a.locked&&a.match){a.match[+e.target.dataset.k]=e.target.value===''?null:+e.target.value;S.quiz.confirm=false;render()}}
   if(c==='qsCustom'){const v=parseFloat(e.target.value);if(v>0){const st=qset();const sec=Math.round(v*60);if(st.timer==='q')st.qSec=sec;else st.setSec=sec;LS.set('qset',st);render()}}
   if(c==='unoStack'){S.uno.stack=e.target.checked;persist()}
@@ -5441,7 +5480,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* footer: when the website itself was last updated (stamped at each release) */
-const SITE_UPDATED='2026-11-21T13:10:00+07:00';
+const SITE_UPDATED='2026-11-22T02:24:00+07:00';
 /* the stamp (real time of the release, never ahead) is only a fallback: the live site always shows GitHub's last commit time of index.html */
 (function(){const el=document.getElementById('siteFoot');if(!el)return;
   const show=iso=>{const d=new Date(iso);if(isNaN(d))return;let t;try{t=d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Bangkok'})+' เวลา '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'})+' น.'}catch(e){t=iso}
