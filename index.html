@@ -226,7 +226,10 @@ ul.plain{list-style:none;margin:0;padding:0}
 .review li.rvpart{grid-template-columns:minmax(0,1fr) auto;background:none;padding:10px 4px 0;font:600 .95rem var(--f-head)}
 .pparts{display:grid;gap:10px}
 .pprow{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,auto);gap:8px;align-items:center;padding-top:10px;border-top:1px dashed var(--line)}
-.pprow .ppno{font:600 .9rem var(--f-head)}
+.pprow .ppno{font:600 .9rem var(--f-head);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pparts .pprow{transition:transform .15s ease;background:var(--surface)}
+@media (max-width:699px){.pparts .pprow{grid-template-columns:auto minmax(0,3fr) minmax(0,2fr)}}
+.pparts .pprow.dragging{transition:none;position:relative;z-index:5;box-shadow:var(--shadow);border-radius:10px}
 .pprow .btns{grid-column:1/-1}
 .pprow .ppnote{grid-column:1/-1}
 @media (min-width:700px){.pprow .btns{grid-column:auto}.pprow{grid-template-columns:auto minmax(0,1fr) auto auto}}
@@ -1439,6 +1442,7 @@ const Store={
     try{await this.maybeSeed()}catch(e){}
     try{await this.maybeStories()}catch(e){}
     try{await this.maybeQSets()}catch(e){}
+    try{await this.maybeVocabParts()}catch(e){}
   },
   /* login: everyone is signed in anonymously; brother mode needs a Google account on the allowed list (meta/admins) */
   user:null, admin:false, ownerClaim:false,
@@ -1457,7 +1461,7 @@ const Store={
     if(!this.admin)S.bro=false;else if(LS.get('bro',false))S.bro=true;
     changed();
     if(CLS&&this.kind==='firebase')this.clsSubs();
-    if(this.admin){try{await this.maybeSeed()}catch(e){}try{await this.maybeStories()}catch(e){}try{await this.maybeQSets()}catch(e){}}
+    if(this.admin){try{await this.maybeSeed()}catch(e){}try{await this.maybeStories()}catch(e){}try{await this.maybeQSets()}catch(e){}try{await this.maybeVocabParts()}catch(e){}}
   },
   /* classroom site: brother mode listens to every student's own collection (cls_s_KEY); a student listens only to theirs */
   clsUn:[],clsK:{},clsLog:{},
@@ -1531,6 +1535,21 @@ const Store={
     await this.put('lessons',id,body);
     await this.put('meta','qsetPatches',{done:[...done],at:Date.now()});
     toast('ใส่โจทย์ใหม่แทนของเดิมแล้ว: '+names.join(', '));
+  },
+  /* once (23 Nov 2026): every English Stories vocab test that already has parts saved gets the 5 standard parts (sets without saved parts use them by default) */
+  async maybeVocabParts(){
+    if(this.kind==='firebase'&&!this.admin)return;
+    const shared=this.mode==='shared';const KEY='vocab5-2026-11-23';
+    let flag=shared?await this.db.collection(CP+'meta').doc('vocabParts').get():null;
+    flag=shared?(flag.exists?flag.data():null):(this.d.meta.vocabParts||null);
+    if(flag&&(flag.done||[]).includes(KEY))return;
+    let all;if(shared){const q=await this.db.collection(CP+'lessons').get();all=q.docs.map(x=>Object.assign({},x.data(),{id:x.id}))}else all=Object.values(this.d.lessons||{});
+    let n=0;
+    for(const l of all.filter(isStory)){const body=JSON.parse(JSON.stringify(l));const id=body.id;delete body.id;const ps=body.parts||{};let ch=false;
+      Object.keys(ps).forEach(sc=>{if(!isVocabSet(sc))return;const nw=vocabPartsFrom(ps[sc]||[]);if(JSON.stringify(nw)!==JSON.stringify(ps[sc]||[])){ps[sc]=nw;ch=true;n++}});
+      if(ch){body.parts=ps;await this.put('lessons',id,body)}}
+    await this.put('meta','vocabParts',{done:[...((flag&&flag.done)||[]),KEY],at:Date.now()});
+    if(n)toast('ใส่ 5 พาร์ทของ Vocab ให้ชุดคำศัพท์แล้ว '+n+' ชุด');
   },
   /* a fresh copy of the website starts with the house's starter data (window.HOUSE_SEED), once */
   async maybeSeed(){
@@ -1844,9 +1863,18 @@ const topicSets=(l,t)=>!t.tid?[]:isStory(l)?[t.tid,t.tid+VS]:[t.tid];
 /* the story text itself can be hidden from the kids too (key tid + '~s'), separately from its two quiz sets; a hidden story can't be read anywhere, even from inside its quiz */
 const SSX='~s';
 /* quiz parts: any quiz set (every subject) can be split into Part 1, 2 … — each with a name, an optional question type and instructions.
-   l.parts = {set: [{pid,name,kind,note}]}; a story's Vocabularies set starts with 4 parts: Cloze · Matching · True/False · MCQ */
-const VOCAB_PARTS=[['p-cloze','Cloze','cloze'],['p-match','Matching','match'],['p-tf','True/False','tf'],['p-mcq','MCQ','mcq']].map(([pid,name,kind])=>({pid,name,kind,note:''}));
-function partsIn(map,story,sc){sc=sc||'final';if(map&&Object.prototype.hasOwnProperty.call(map,sc))return map[sc]||[];return story&&String(sc).endsWith(VS)?VOCAB_PARTS:[]}
+   l.parts = {set: [{pid,name,kind,note}]}; every English Stories vocab test (each story's Vocabularies set + every Vocab Checkpoint) starts with these 5 parts (set 23 Nov 2026):
+   Cloze · Matching · True/False · Writing (MEQ) · MCQ — the brother adds the questions himself */
+const VOCAB_PARTS=[['p-cloze','Cloze (เติมคำ)','cloze','Fill in the blanks with the words from the word bank. There may be remaining words and some words may be used more than once.'],
+  ['p-match','Matching (จับคู่)','match','Match each word with its most appropriate explanation.'],
+  ['p-tf','True/False (จริงมั้ยนะ🤔)','tf','Identify if each of the following question is true or false.'],
+  ['p-meq','Writing (เขียนตอบ)','meq','Write a short answer to answer the questions.'],
+  ['p-mcq','MCQ (4 ตัวเลือก)','mcq','Choose one best answer for each question.']].map(([pid,name,kind,note])=>({pid,name,kind,note}));
+const isVocabSet=sc=>{sc=String(sc||'');return sc.endsWith(VS)||sc.startsWith('ck:')};
+function partsIn(map,story,sc){sc=sc||'final';if(map&&Object.prototype.hasOwnProperty.call(map,sc))return map[sc]||[];return story&&isVocabSet(sc)?VOCAB_PARTS.map(p=>Object.assign({},p)):[]}
+/* the 5 standard parts for a vocab test that already had parts saved: a saved part of the same type keeps its pid (its questions stay in it), other saved parts follow after */
+function vocabPartsFrom(old){const used=new Set();const out=VOCAB_PARTS.map(s=>{const ex=(old||[]).find(p=>p&&!used.has(p)&&p.kind===s.kind);if(ex)used.add(ex);return Object.assign({},s,{pid:ex&&ex.pid||s.pid})});
+  (old||[]).forEach(p=>{if(p&&!used.has(p))out.push(p)});return out}
 const partsOf=(l,sc)=>partsIn(l&&l.parts,isStory(l),sc);
 /* the part a question sits in: its own part, else the first part of its type, else the first part */
 function partIx(ps,q){if(!ps.length||!q)return -1;let i=ps.findIndex(p=>p.pid&&p.pid===q.part);if(i<0)i=ps.findIndex(p=>p.kind&&p.kind===qType(q));return i<0?0:i}
@@ -3157,12 +3185,12 @@ function qNb(d,i,dir){const a=d.questions,q=a[i];if(!q)return -1;const grp=d.qf&
 /* editor for the parts of the set being shown */
 function partsPanel(d){const sc=d.qf;if(!sc||sc==='all')return '';const ps=draftParts(d,sc);
   return `<div class="panel pparts" data-sc="${esc(sc)}"><b class="label">พาร์ทในชุดนี้${ps.length?' · '+ps.length+' พาร์ท':''}</b>
-    ${ps.length?ps.map((p,k)=>`<div class="pprow"><span class="ppno">Part ${k+1}</span><input type="text" id="pp${k}_name" value="${esc(p.name||'')}" placeholder="ชื่อพาร์ท เช่น Cloze" aria-label="ชื่อ Part ${k+1}">
+    ${ps.length?ps.map((p,k)=>`<div class="pprow" data-drag="p" data-ix="${k}"><span class="ppno"><button type="button" class="grip" data-grip aria-label="ลากเพื่อย้าย"><svg viewBox="0 0 12 18" aria-hidden="true"><circle cx="3" cy="3" r="1.6"/><circle cx="9" cy="3" r="1.6"/><circle cx="3" cy="9" r="1.6"/><circle cx="9" cy="9" r="1.6"/><circle cx="3" cy="15" r="1.6"/><circle cx="9" cy="15" r="1.6"/></svg></button>Part ${k+1}</span><input type="text" id="pp${k}_name" value="${esc(p.name||'')}" placeholder="ชื่อพาร์ท เช่น Cloze" aria-label="ชื่อ Part ${k+1}">
       <select id="pp${k}_kind" data-change="qtype" aria-label="แบบโจทย์ของ Part ${k+1}"><option value="">ผสมหลายแบบ</option>${QT.map(([v,n])=>`<option value="${v}" ${p.kind===v?'selected':''}>${n}</option>`).join('')}</select>
       <div class="btns"><button type="button" class="btn sm ghost" data-act="ppMove" data-id="${k}" data-dir="-1" ${k?'':'disabled'}>ขึ้น</button><button type="button" class="btn sm ghost" data-act="ppMove" data-id="${k}" data-dir="1" ${k<ps.length-1?'':'disabled'}>ลง</button><button type="button" class="btn sm danger" data-act="ppDel" data-id="${k}">ลบพาร์ท</button></div>
       <input type="text" id="pp${k}_note" class="ppnote" value="${esc(p.note||'')}" placeholder="คำสั่งของพาร์ท (ไม่ใส่ก็ได้) เช่น Fill in the blanks with words from the story" aria-label="คำสั่งของ Part ${k+1}"></div>`).join(''):'<p class="muted small">ชุดนี้ยังไม่แบ่งพาร์ท โจทย์ทุกข้ออยู่รวมกัน</p>'}
     <div class="btns"><button type="button" class="btn sm" data-act="ppAdd">+ เพิ่มพาร์ท</button></div>
-    <small class="muted">น้องทำทีละพาร์ทตามลำดับ · ตั้งแบบโจทย์ของพาร์ทไว้ ปุ่มเพิ่มโจทย์ของพาร์ทนั้นจะเป็นแบบนั้นให้ · ถ้าไม่ได้เลือกพาร์ทให้โจทย์ จะไปอยู่พาร์ทแรกที่แบบตรงกัน</small></div>`}
+    <small class="muted">น้องทำทีละพาร์ทตามลำดับ · ลากที่จุด ⠿ หน้าเลขพาร์ทเพื่อย้ายขึ้นลง · ตั้งแบบโจทย์ของพาร์ทไว้ ปุ่มเพิ่มโจทย์ของพาร์ทนั้นจะเป็นแบบนั้นให้ · ถ้าไม่ได้เลือกพาร์ทให้โจทย์ จะไปอยู่พาร์ทแรกที่แบบตรงกัน</small></div>`}
 /* shared word banks of the set being shown: pick which cloze questions use each bank */
 function banksPanel(d){const sc=d.qf;if(!sc||sc==='all')return '';d.banks=d.banks||[];const bs=d.banks.filter(b=>b.sc===sc);
   const cz=d.questions.map((q,i)=>({q,i})).filter(x=>x.q.type==='cloze'&&(x.q.topic||'final')===sc);
@@ -3638,10 +3666,7 @@ const ACT={
   ppAdd(){syncDraft();const d=S.draft;const ps=draftParts(d,d.qf).slice();ps.push({pid:'p'+uid(),name:'',kind:'',note:''});d.parts=d.parts||{};d.parts[d.qf]=ps;paintLessonForm()},
   ppDel(t){syncDraft();const d=S.draft;const ps=draftParts(d,d.qf).slice();const k=+t.dataset.id;const gone=ps[k];if(!gone)return;ps.splice(k,1);d.parts[d.qf]=ps;
     let n=0;d.questions.forEach(q=>{if((q.topic||'final')===d.qf&&q.part===gone.pid){q.part='';n++}});paintLessonForm();toast(n?'ลบพาร์ทแล้ว โจทย์ '+n+' ข้อย้ายไปพาร์ทที่แบบตรงกัน (หรือพาร์ทแรก)':'ลบพาร์ทแล้ว')},
-  ppMove(t){syncDraft();const d=S.draft;const ps=draftParts(d,d.qf).slice();const k=+t.dataset.id,j=k+(+t.dataset.dir);if(j<0||j>=ps.length)return;
-    /* questions without a part of their own keep the part they show in */
-    d.questions.forEach(q=>{if((q.topic||'final')===d.qf&&!ps.some(x=>x.pid===q.part)){const i=partIx(ps,q);if(i>=0)q.part=ps[i].pid}});
-    [ps[k],ps[j]]=[ps[j],ps[k]];d.parts[d.qf]=ps;paintLessonForm()},
+  ppMove(t){syncDraft();const k=+t.dataset.id;ppReorder(k,k+(+t.dataset.dir))},
   ckGen,
   qfSet(t){syncDraft();S.draft.qf=t.dataset.id;if(t.dataset.id!=='all')S.draft.bulkTopic=t.dataset.id;paintLessonForm();$('#sheetCard').scrollTop=0},
   quizForm(t){S.confirm=null;lessonForm(t.dataset.id,'quiz',t.dataset.set||'all')},
@@ -4941,7 +4966,12 @@ document.addEventListener('click',e=>{
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   const fn=ACT[t.dataset.act];if(fn){e.preventDefault();fn(t,e)}
 });
-/* drag a topic or question box by its grip to reorder it */
+/* move part k of the set being shown to place j (buttons ขึ้น/ลง and dragging); call after syncDraft */
+function ppReorder(k,j){const d=S.draft;const ps=draftParts(d,d.qf).slice();if(k===j||j<0||j>=ps.length||!ps[k])return;
+  /* questions without a part of their own keep the part they show in */
+  d.questions.forEach(q=>{if((q.topic||'final')===d.qf&&!ps.some(x=>x.pid===q.part)){const i=partIx(ps,q);if(i>=0)q.part=ps[i].pid}});
+  const [x]=ps.splice(k,1);ps.splice(j,0,x);d.parts=d.parts||{};d.parts[d.qf]=ps;paintLessonForm()}
+/* drag a topic or question box (or a part row) by its grip to reorder it */
 function startDrag(e,grip){
   const item=grip.closest('[data-drag]');const list=item&&item.parentElement;if(!item||!list||!S.draft)return;
   const kind=item.dataset.drag;const items=Array.from(list.children).filter(el=>el.dataset&&el.dataset.drag===kind&&!el.hidden);
@@ -4962,6 +4992,7 @@ function startDrag(e,grip){
   const move=ev=>{lastY=ev.clientY;layout();ev.preventDefault()};
   const up=()=>{cancelAnimationFrame(raf);grip.removeEventListener('pointermove',move);grip.removeEventListener('pointerup',up);grip.removeEventListener('pointercancel',up);
     items.forEach(el=>{el.style.transform='';el.classList.remove('dragging')});
+    if(to!==from&&kind==='p'){syncDraft();ppReorder(+items[from].dataset.ix,+items[to].dataset.ix);return}
     if(to!==from){syncDraft();const a=kind==='t'?S.draft.topics:S.draft.questions;const fr=+items[from].dataset.ix,tr=+items[to].dataset.ix;const [x]=a.splice(fr,1);a.splice(tr,0,x);paintLessonForm()}};
   grip.addEventListener('pointermove',move);grip.addEventListener('pointerup',up);grip.addEventListener('pointercancel',up);
 }
@@ -5571,7 +5602,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* footer: when the website itself was last updated (stamped at each release) */
-const SITE_UPDATED='2026-11-22T17:14:00+07:00';
+const SITE_UPDATED='2026-11-23T01:37:00+07:00';
 /* the stamp (real time of the release, never ahead) is only a fallback: the live site always shows GitHub's last commit time of index.html */
 (function(){const el=document.getElementById('siteFoot');if(!el)return;
   const show=iso=>{const d=new Date(iso);if(isNaN(d))return;let t;try{t=d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Bangkok'})+' เวลา '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'})+' น.'}catch(e){t=iso}
