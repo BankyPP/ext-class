@@ -174,7 +174,6 @@ details.tg summary{font-family:var(--h);font-weight:500;cursor:pointer}
 .sw{display:flex;gap:6px;flex-wrap:wrap}.sw label{display:inline-flex}.sw input{display:none}.sw span{width:26px;height:26px;border-radius:50%;background:var(--c);border:3px solid transparent}.sw input:checked+span{border-color:var(--ink)}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:10px;font-size:14.5px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
-#upd{position:fixed;top:0;left:0;right:0;z-index:95;background:#FFD43B;color:#3b2f00;border:0;font-family:var(--h);font-weight:600;font-size:15px;padding:9px 12px;text-align:center}
 #siteFoot{text-align:center;font-size:13px;color:var(--muted);padding:6px 0 26px}
 .ld{padding:60px 0;text-align:center;color:var(--muted)}
 .katex{font-size:1.04em}
@@ -207,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-23T23:33:00+07:00';
+const SITE_UPDATED='2026-11-23T23:49:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -623,17 +622,19 @@ document.addEventListener('keydown',e=>{if(S.view!=='day'||!$('#sheet').hidden)r
 /* clock + new round at 07:30 */
 let lastDay=today();setInterval(()=>{const c=document.getElementById('clk');if(c)c.textContent=hms(nextOpen()-Date.now());if(today()!==lastDay){lastDay=today();render()}},1000);
 
-/* ---------- footer + yellow new-version bar ---------- */
+/* ---------- footer ---------- */
 const verOf=()=>[SITE_UPDATED,window.TU_DATA_VER||''].sort().pop();
 function foot(iso){$('#siteFoot').innerHTML='อัปเดตเว็บล่าสุด <time datetime="'+iso+'">'+fmtTime(iso)+'</time>'}
-function updBar(){if($('#upd'))return;const b=document.createElement('button');b.id='upd';b.type='button';b.textContent='เว็บมีเวอร์ชันใหม่ — แตะเพื่อโหลดใหม่';b.onclick=()=>location.replace(location.pathname+'?v='+Date.now()+location.hash);document.body.appendChild(b)}
-async function checkVer(){if(!/github\.io$/.test(location.hostname))return;
+/* 23 Nov 2026: the version box is now the ac-mdcu one (block before </body>); this compares the site's own stamps as an extra signal */
+window.stExtraCheck=async()=>{if(!/github\.io$/.test(location.hostname))return false;
   try{const [a,b]=await Promise.all([fetch(location.pathname.replace(/[^/]*$/,'')+'index.html?chk='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():''),fetch('tu/days.js?chk='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'')]);
     const m1=a.match(/const SITE_UPDATED='([^']+)'/),m2=b.match(/TU_DATA_VER\s*=\s*'([^']+)'/);
-    if((m1&&m1[1]>SITE_UPDATED)||(m2&&m2[1]>(window.TU_DATA_VER||'')))updBar()}catch(e){}}
+    return !!((m1&&m1[1]>SITE_UPDATED)||(m2&&m2[1]>(window.TU_DATA_VER||'')))}catch(e){return false}};
+/* safe to reload by itself = not inside a day's questions and no sheet (form / editor) open */
+window.stSafeSite=()=>S.view!=='day'&&$('#sheet').hidden;
 function footInit(){foot(verOf());if(!/github\.io$/.test(location.hostname))return;
   fetch('https://api.github.com/repos/BankyPP/'+(location.pathname.split('/')[1]||'ext-class')+'/commits?per_page=1',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{const iso=j&&j[0]&&j[0].commit&&(j[0].commit.committer||j[0].commit.author||{}).date;if(iso)foot(iso)}).catch(()=>{});
-  setTimeout(checkVer,4000);setInterval(checkVer,3*60e3)}
+}
 
 /* ---------- boot: data files always fresh (no stale questions) ---------- */
 const loadJs=src=>new Promise(r=>{const s=document.createElement('script');s.src=src+(src.includes('?')?'&':'?')+'t='+Date.now();s.onload=r;s.onerror=r;document.head.appendChild(s)});
@@ -641,5 +642,52 @@ const loadJs=src=>new Promise(r=>{const s=document.createElement('script');s.src
   if(S.view==='day'&&!S.day)S.view='cal';await DB.init();render();
   window.addEventListener('load',()=>setTimeout(typeset,50))})();
 </script>
+<!-- stbar:begin (23 Nov 2026) — yellow "new version" box, copied from ac-mdcu: site/extra.css #stbar + site/app.js stCheck/stSafe/stBar/stAct.
+     A phone keeps an open tab (or a home-screen web app) alive for days, so after a deploy it still runs the old code.
+     Ask the server for this page again: a newer Last-Modified (every GitHub Pages deploy re-stamps every file) or different content = stale.
+     Back on screen with nothing in progress (stSafeSite) → reload by itself; otherwise → the box. Off inside claude.ai (artifact), like ac-mdcu. -->
+<style>
+#stbar{--st-warn:#9A6400;--st-warn-soft:#FFF1D2;--st-ink:#1B2425;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:2147483000;max-width:92vw;background:var(--st-warn-soft);color:var(--st-ink);border:1.5px solid var(--st-warn);border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.5;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#stbar button{font:inherit;font-weight:600;color:var(--st-warn);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+@media (prefers-color-scheme:dark){#stbar{--st-warn:#F0BE5A;--st-warn-soft:#382D14;--st-ink:#E4EBE9}}
+</style>
+<script>
+(function(){
+  var IN_FRAME=(function(){try{return window.top!==window;}catch(e){return true;}})();   /* true when shown inside claude.ai (artifact) */
+  var TXT="เว็บมีเวอร์ชันใหม่";
+  var ST_LM=Date.parse(document.lastModified)||0, URL0=location.pathname;
+  var H=function(s){var x=0x811c9dc5;for(var i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,0x01000193)>>>0;}return x;};
+  var stLast=0,stBusy=null,stIsOld=false,base=null;
+  function stCheck(force){
+    if(IN_FRAME||!/^https?:$/.test(location.protocol))return Promise.resolve(false);
+    if(stIsOld)return Promise.resolve(true);
+    if(stBusy)return stBusy;if(!force&&Date.now()-stLast<60000)return Promise.resolve(false);stLast=Date.now();
+    return stBusy=fetch(URL0+"?st="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)return false;
+        var lm=Date.parse(r.headers.get("last-modified")||"")||0;
+        return r.text().then(function(t){var h=H(t);stIsOld=!!(lm&&ST_LM&&lm-ST_LM>60000)||(base!==null&&h!==base);if(base===null)base=h;return stIsOld;});})
+      .catch(function(){return false;})
+      .then(function(o){if(o||typeof window.stExtraCheck!=="function")return o;   /* the site's own version stamps (e.g. a data file) */
+        return Promise.resolve(window.stExtraCheck()).then(function(x){if(x)stIsOld=true;return !!x;},function(){return false;});})
+      .then(function(o){stBusy=null;return o;});}
+  function stSafe(){   /* nothing in progress: the site says so, and no text box has the focus */
+    try{if(typeof window.stSafeSite==="function"&&!window.stSafeSite())return false;}catch(e){return false;}
+    var a=document.activeElement;return !(a&&a!==document.body&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)));}
+  function stReload(){try{if(typeof window.stSave==="function")window.stSave();}catch(e){}location.reload();}
+  function stBar(){if(document.getElementById("stbar"))return;var b=document.createElement("div");b.id="stbar";b.setAttribute("role","alert");
+    b.innerHTML=TXT+' — <button type="button">แตะเพื่อโหลดใหม่</button>';
+    b.querySelector("button").onclick=stReload;document.body.appendChild(b);}
+  function stAct(old,fromBg){if(!old)return;if(fromBg&&stSafe()){stReload();return;}stBar();}
+  window.stGuard={check:stCheck,act:stAct,bar:stBar,safe:stSafe};
+  /* a picture that fails to load is often a file the new deploy replaced → check now (ac-mdcu acImgErr) */
+  document.addEventListener("error",function(e){var t=e.target;if(t&&t.tagName==="IMG"&&Date.now()-stLast>5000)stCheck(1).then(function(o){stAct(o,false);});},true);
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")stCheck(0).then(function(o){stAct(o,true);});});
+  addEventListener("pageshow",function(e){if(e.persisted)stCheck(1).then(function(o){stAct(o,true);});});
+  /* every minute while the page is on screen, so the box shows soon after any deploy */
+  setInterval(function(){if(document.visibilityState==="visible")stCheck(1).then(function(o){stAct(o,false);});},60000);
+  /* 3 s after the page opens — a fresh open can still get the old page from the browser's HTTP cache (GitHub Pages: up to 10 min) */
+  setTimeout(function(){stCheck(1).then(function(o){stAct(o,false);});},3000);
+})();
+</script>
+<!-- stbar:end -->
 </body>
 </html>
