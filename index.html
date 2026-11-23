@@ -30,6 +30,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .btn.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
 .btn.sm{padding:3px 9px;font-size:13px}
 .btn.danger{border-color:var(--wrong);color:var(--wrong)}
+.modebtn{display:inline-flex;align-items:center;gap:8px;font:500 .9rem/1 var(--h);min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--mline);background:var(--sheet);color:var(--ink);cursor:pointer}
+.modebtn .mdot{width:10px;height:10px;border-radius:50%;background:var(--mline)}
+.modebtn[aria-pressed="true"]{background:var(--mbtn);color:var(--mbtn-ink);border-color:var(--mbtn)}
+.modebtn[aria-pressed="true"] .mdot{background:#38D38E}
+:root{--mline:#CDD6DE;--mbtn:#17212B;--mbtn-ink:#fff}
+@media (prefers-color-scheme:dark){:root{--mline:#2D3844;--mbtn:#E6ECF1;--mbtn-ink:#10161C}}
 .chip{display:inline-flex;align-items:center;gap:4px;border:1.5px solid var(--rule);border-radius:999px;padding:2px 10px;font-family:var(--h);font-size:13px;background:var(--sheet)}
 .muted{color:var(--muted)}
 .card{background:var(--sheet);border:1.5px solid var(--rule);border-radius:12px;padding:14px 16px}
@@ -194,7 +200,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-23T22:59:00+07:00';
+const SITE_UPDATED='2026-11-23T23:10:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -363,7 +369,7 @@ function dayStatus(key,d){return orderOf(key,d).map(q=>{if(!key)return 'q';const
 function header(){const k=ME&&!DB.admin?Object.values(KIDS)[0]:null;
   return `<div class="top"><div class="logo" data-a="home"><img src="icon.png" alt=""><h1>Classroom</h1></div><span class="sp"></span>
     ${k?`<span class="chip"><span class="dot" style="--c:${esc(k.color||SWATCHES[0])}"></span>${esc(k.nick||k.code)}</span>`:''}
-    ${DB.mode==='fb'||DB.mode==='test'?`<button class="btn ${S.bro?'on':''}" data-a="bro">${S.bro?'โหมดพี่ ✓':'โหมดพี่'}</button>`:''}</div>`}
+    ${DB.mode==='fb'||DB.mode==='test'?`<button type="button" class="modebtn" data-a="bro" aria-pressed="${S.bro?'true':'false'}"><span class="mdot"></span><span>${S.bro?'โหมดพี่ เปิดอยู่':'โหมดพี่'}</span></button>`:''}</div>`}
 function viewHome(){const td=today(),key=VK(),qs=dayQs(td),G=game(key);
   const done=key?qs.filter(q=>ansOf(key,td,q)).length:0;
   return `<div class="launch">
