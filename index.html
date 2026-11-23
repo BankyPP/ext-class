@@ -106,6 +106,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .qtext{font-size:17px;line-height:1.7}
 .qtext p,.sol p{margin:.45em 0}
 .qtext img,.sol img{max-width:100%}
+.fig{margin:10px 0;text-align:center;color:var(--ink)}
+.fig svg,.fig img{max-width:100%;height:auto;max-height:340px}
+.ofig{display:inline-block;color:var(--ink)}.ofig svg{max-width:220px;height:auto}
 .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .opt{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1.5px solid var(--rule);border-radius:10px;background:var(--sheet);padding:9px 12px;font-size:16px;line-height:1.55}
 .opt .ol{font-family:var(--h);font-weight:600;min-width:20px}
@@ -204,7 +207,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-23T23:24:00+07:00';
+const SITE_UPDATED='2026-11-23T23:33:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -357,6 +360,9 @@ function md(src){if(!src)return '';const M=[];
     if(!i)i=1;out.push('<p>'+inl(L.slice(0,i).join('<br>'))+'</p>');block(L.slice(i))};
   s.split(/\n\s*\n/).forEach(b=>block(b.split('\n')));
   return out.join('').replace(/\u0000(\d+)\u0001/g,(_,i)=>M[+i])}
+const isFig=v=>typeof v==='string'&&/^\s*(<svg|<img|<figure)/i.test(v);
+function fig(v){if(!v)return '';if(isFig(v))return `<div class="fig">${v}</div>`;if(/^(https?:|data:image|tu\/img\/)/.test(v))return `<div class="fig"><img src="${esc(v)}" alt=""></div>`;return ''}
+function optBody(v){return isFig(v)?`<span class="ofig">${v}</span>`:md(v).replace(/^<p>|<\/p>$/g,'')}
 function typeset(){try{if(window.renderMathInElement){const o={delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false};
   renderMathInElement($('#app'),o);if(!$('#sheet').hidden)renderMathInElement($('#sheet'),o)}}catch(e){}}
 
@@ -418,12 +424,12 @@ function viewDay(){const d=S.day,td=today(),bro=S.bro,key=VK();
   const sj=SUBJ[q.subj]||{n:q.subj,c:'#555'},pk=S.pick[d+'|'+q.slot+'|'+q.qid];
   const canAns=!revealed&&!bro&&!!ME&&!(d>td);
   const opts=pm.map((o,i)=>{let c='';if(revealed){if(o===q.a)c='ok';else if(a&&a.pick===o)c='no'}else if(pk===i)c='sel';
-    return `<button class="opt ${c}" data-a="pick" data-i="${i}" ${canAns?'':'disabled'}><span class="ol">${LETTERS[i]}.</span><span>${md(q.c[o]).replace(/^<p>|<\/p>$/g,'')}</span></button>`}).join('');
+    return `<button class="opt ${c}" data-a="pick" data-i="${i}" ${canAns?'':'disabled'}><span class="ol">${LETTERS[i]}.</span><span>${optBody(q.c[o])}</span></button>`}).join('');
   const late=a&&!a.ot;
   let after='';
   if(revealed){
     if(a)after+=`<div class="verdict ${isOk(a,q)?'g':'r'}">${isOk(a,q)?'ถูกต้อง ✓':'ยังไม่ถูก ✗'} <small>ตอบ ${LETTERS[pm.indexOf(a.pick)]} · เฉลย ${LETTERS[pm.indexOf(q.a)]}${a.ms?` · ใช้เวลา ${Math.round(a.ms/1000)} วินาที`:''}${late?' · ทำย้อนหลัง (ไม่นับไฟ/เหรียญ)':''}</small></div>`;
-    after+=`<div class="sol"><h3>วิธีทำ</h3>${md(q.sol)||'<p class="muted">ยังไม่มีวิธีทำ</p>'}</div>`;
+    after+=`<div class="sol"><h3>วิธีทำ</h3>${fig(q.solFig)}${md(q.sol)||'<p class="muted">ยังไม่มีวิธีทำ</p>'}</div>`;
     if(q.sum)after+=`<div class="sum"><h3>สรุปความรู้${q.ch?' · '+esc(chName(q.subj,q.ch)):''}</h3>${md(q.sum)}</div>`;
   }
   if(bro){const ks=Object.values(KIDS).filter(k=>k.key);
@@ -436,7 +442,7 @@ function viewDay(){const d=S.day,td=today(),bro=S.bro,key=VK();
     <div class="qcard">
       <div class="qmeta"><span class="qno">ข้อ ${S.qi+1}</span><span class="sj" style="--sj:${sj.c}">${sj.n}</span>${q.stars?`<span class="stars">${'★'.repeat(q.stars)}${'☆'.repeat(Math.max(0,5-q.stars))}</span>`:''}
         ${revealed&&q.trick?'<span class="trk">ข้อหลอก</span>':''}${revealed&&q.ch?`<span class="chn">${esc(chName(q.subj,q.ch))}</span>`:''}${bro&&q.own?'<span class="chip">พี่ใส่เอง</span>':''}</div>
-      <div class="qtext">${md(q.q)}</div>
+      <div class="qtext">${md(q.q)}${fig(q.fig)}</div>
       <div class="opts">${opts}</div>
       ${canAns?`<div class="qact"><button class="btn primary" data-a="submit">ส่งคำตอบ</button><span class="err" id="qerr">${esc(S.err)}</span><span class="sp"></span><button class="btn" data-a="skip">ข้าม →</button></div>`
         :`<div class="qact"><button class="btn" data-a="qi" data-i="${S.qi-1}" ${S.qi?'':'disabled'}>← ข้อก่อน</button><span class="sp"></span><button class="btn" data-a="qi" data-i="${S.qi+1}" ${S.qi<qs.length-1?'':'disabled'}>ข้อถัดไป →</button></div>`}
@@ -544,6 +550,7 @@ function editForm(d,k){const sub=slotSubj(k),cur=dayQs(d).find(q=>q.slot===k)||{
    <label class="fld"><span>ความยาก (1–5 ดาว)</span><input id="eStars" type="number" min="1" max="5" value="${cur.stars||4}"></label>
    <label class="fld" style="display:flex;gap:8px;align-items:center"><input id="eTrick" type="checkbox" ${cur.trick?'checked':''} style="width:auto"> <span style="margin:0">ข้อหลอก</span></label>
    <label class="fld"><span>โจทย์ (เขียนสูตรด้วย $...$ ได้)</span><textarea id="eQ" class="tall">${esc(cur.q||'')}</textarea></label>
+   <label class="fld"><span>รูปประกอบ (ไม่บังคับ) · ลิงก์รูป หรือโค้ด SVG</span><textarea id="eFig">${esc(cur.fig||'')}</textarea></label>
    <div class="fld"><span>ตัวเลือก (กดวงกลมหน้าข้อที่ถูก)</span>${[0,1,2,3].map(i=>`<div class="optin"><input type="radio" name="eA" value="${i}" ${(cur.a||0)===i?'checked':''}><b>${LETTERS[i]}</b><input type="text" id="eC${i}" value="${esc((cur.c||[])[i]||'')}"></div>`).join('')}</div>
    <label class="fld"><span>วิธีทำ (เต็มทุกขั้น)</span><textarea id="eSol" class="tall">${esc(cur.sol||'')}</textarea></label>
    <label class="fld"><span>สรุปความรู้ทั้งบท</span><textarea id="eSum" class="tall">${esc(cur.sum||'')}</textarea></label>
@@ -586,7 +593,7 @@ const ACT={
   edit(t){closeSheet();editForm(t.dataset.d,t.dataset.k)},
   editday(t){dayEditList(t.dataset.d)},
   async saveQ(t){const d=t.dataset.d,k=val('eSlot'),c=[0,1,2,3].map(i=>val('eC'+i)),a=+((document.querySelector('input[name=eA]:checked')||{}).value||0);
-    const q={qid:'o'+uid(),ch:val('eCh'),stars:Math.min(5,Math.max(1,+val('eStars')||4)),trick:!!(document.getElementById('eTrick')||{}).checked,q:val('eQ'),c,a,sol:val('eSol'),sum:val('eSum'),by:'bro',at:Date.now()};
+    const q={qid:'o'+uid(),ch:val('eCh'),stars:Math.min(5,Math.max(1,+val('eStars')||4)),trick:!!(document.getElementById('eTrick')||{}).checked,q:val('eQ'),fig:val('eFig'),c,a,sol:val('eSol'),sum:val('eSum'),by:'bro',at:Date.now()};
     if(!q.q||c.some(x=>!x)){$('#eErr').textContent='ใส่โจทย์และตัวเลือกให้ครบ 4 ข้อ';return}
     if(!q.ch){$('#eErr').textContent='เลือกบทก่อน';return}
     try{await DB.saveSlot(d,k,q);closeSheet();toast('บันทึกแล้ว');render()}catch(e){$('#eErr').textContent='บันทึกไม่สำเร็จ ('+(e&&e.code||'error')+')'}},
