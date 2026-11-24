@@ -206,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-24T00:33:00+07:00';
+const SITE_UPDATED='2026-11-24T09:20:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -379,7 +379,7 @@ function header(){const k=ME&&!DB.admin?Object.values(KIDS)[0]:null;
   return `<div class="top"><div class="logo" data-a="home"><img src="icon.png" alt=""><h1>Classroom</h1></div><span class="sp"></span>
     
     ${DB.mode==='fb'||DB.mode==='test'?`<button type="button" class="modebtn" data-a="bro" aria-pressed="${S.bro?'true':'false'}"><span class="mdot"></span><span>${S.bro?'โหมดพี่ เปิดอยู่':'โหมดพี่'}</span></button>`:''}</div>
-    ${k?`<div class="who-me" style="--c:${esc(k.color||SWATCHES[0])}"><span class="dot"></span><span>ลิงก์ของ <b>${esc(k.full||k.nick||k.code)}</b>${k.full&&k.nick?` (${esc(k.nick)})`:''}${k.grade?` · ${esc(k.grade)}`:''}</span></div>`:''}`}
+    ${k?`<div class="who-me" style="--c:${esc(k.color||SWATCHES[0])}"><b>${esc(k.nick||k.code)}</b></div>`:''}`}
 function viewHome(){const td=today(),key=VK(),qs=dayQs(td),G=game(key);
   const done=key?qs.filter(q=>ansOf(key,td,q)).length:0;
   return `<div class="launch">
@@ -489,7 +489,7 @@ function viewStats(){const bro=S.bro,kid=bro?KIDS[S.statKid]:null,key=bro?(kid&&
 function viewKids(){if(!S.bro)return viewHome();const ks=Object.values(KIDS).sort((a,b)=>(a.order||0)-(b.order||0));
   const link=k=>location.origin+location.pathname+'?s='+k.key;
   return `<div class="calhead"><button class="btn sm" data-a="go" data-v="home">← หน้าแรก</button><h2>จัดการนักเรียน</h2><span class="sp"></span><button class="btn primary" data-a="kidForm" data-id="">+ เพิ่มนักเรียน</button></div>
-   <div class="card">${ks.map(k=>`<div class="krow"><span class="dot" style="--c:${esc(k.color||SWATCHES[0])}"></span><span class="nm"><b>${esc(k.full||k.nick||k.code)}</b> <span class="muted">${k.full&&k.nick?esc(k.nick)+' · ':''}${esc(k.code||'')}${k.grade?' · '+esc(k.grade):''}</span></span>
+   <div class="card">${ks.map(k=>`<div class="krow"><span class="dot" style="--c:${esc(k.color||SWATCHES[0])}"></span><span class="nm"><b>${esc(k.nick||k.code)}</b> <span class="muted">${esc(k.code||'')}${k.grade?' · '+esc(k.grade):''}</span></span>
      ${k.key?`<button class="btn sm" data-a="copy" data-t="${esc(link(k))}">คัดลอกลิงก์</button>`:''}<button class="btn sm" data-a="kidForm" data-id="${esc(k.id)}">แก้</button></div>`).join('')||'<p class="muted">ยังไม่มีนักเรียน</p>'}</div>
    ${Object.keys(REQ).length?`<h3 class="sec">คำขอสิทธิ์โหมดพี่</h3><div class="card">${Object.values(REQ).map(r=>`<div class="krow"><span class="nm">${esc(r.name||'ไม่มีชื่อ')}</span><button class="btn sm primary" data-a="approve" data-id="${esc(r.id)}">อนุมัติ</button><button class="btn sm" data-a="reject" data-id="${esc(r.id)}">ไม่อนุมัติ</button></div>`).join('')}</div>`:''}
    <p class="muted" style="font-size:14px;margin-top:12px">นักเรียนเปิดเว็บจากลิงก์ส่วนตัวครั้งแรก เครื่องจะจำไว้ ไม่ต้องใช้ลิงก์อีก และจะเห็นแค่ข้อมูลของตัวเอง</p>`}
@@ -530,7 +530,6 @@ function authSheet(){const u=DB.user;
   openSheet(`<h3>เข้าโหมดพี่</h3><p class="muted">ล็อกอินด้วย Google บัญชีที่ได้รับอนุญาต</p><div style="display:flex;gap:8px"><button class="btn primary" data-a="signIn">ล็อกอินด้วย Google</button><button class="btn" data-a="close">ปิด</button></div>`)}
 function kidForm(id){const k=KIDS[id]||{};
   openSheet(`<h3>${id?'แก้นักเรียน':'เพิ่มนักเรียน'}</h3>
-   <label class="fld"><span>ชื่อเต็ม (ขึ้นบนหน้าเว็บของน้องคนนี้ทุกหน้า)</span><input id="kFull" value="${esc(k.full||'')}" placeholder="ชื่อ นามสกุล"></label>
    <label class="fld"><span>ชื่อเล่น</span><input id="kNick" value="${esc(k.nick||'')}"></label>
    <label class="fld"><span>ชื่อย่อ (ภาษาอังกฤษ)</span><input id="kCode" value="${esc(k.code||'')}"></label>
    <label class="fld"><span>ชั้น</span><input id="kGrade" value="${esc(k.grade||'')}" placeholder="ม.3"></label>
@@ -598,11 +597,11 @@ const ACT={
     try{await DB.saveSlot(d,k,q);closeSheet();toast('บันทึกแล้ว');render()}catch(e){$('#eErr').textContent='บันทึกไม่สำเร็จ ('+(e&&e.code||'error')+')'}},
   async delQ(t){try{await DB.delSlot(t.dataset.d,t.dataset.k);closeSheet();toast('ลบแล้ว');render()}catch(e){toast('ลบไม่สำเร็จ')}},
   kidForm(t){kidForm(t.dataset.id)},
-  async saveKid(t){const nick=val('kNick'),code=val('kCode'),full=val('kFull');if(!nick&&!code&&!full){$('#kErr').textContent='ใส่ชื่อก่อน';return}
+  async saveKid(t){const nick=val('kNick'),code=val('kCode');if(!nick&&!code){$('#kErr').textContent='ใส่ชื่อเล่นหรือชื่อย่อก่อน';return}
     const id=t.dataset.id||(code||'kid').toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+uid().slice(-4),old=KIDS[id]||{};
     const color=(document.querySelector('input[name=kCol]:checked')||{}).value||SWATCHES[0];
-    const body=Object.assign({},old,{full,nick,code,grade:val('kGrade'),color,key:KEYRE.test(old.key||'')?old.key:newKey()});delete body.id;
-    try{await DB.putKid(id,body,{kid:id,full,code,nick,grade:body.grade,color});closeSheet();toast('บันทึกแล้ว');render()}catch(e){$('#kErr').textContent='บันทึกไม่สำเร็จ ตรวจ Firestore Rules'}},
+    const body=Object.assign({},old,{nick,code,grade:val('kGrade'),color,key:KEYRE.test(old.key||'')?old.key:newKey()});delete body.id;delete body.full;
+    try{await DB.putKid(id,body,{kid:id,code,nick,grade:body.grade,color});closeSheet();toast('บันทึกแล้ว');render()}catch(e){$('#kErr').textContent='บันทึกไม่สำเร็จ ตรวจ Firestore Rules'}},
   async delKid(t){const k=KIDS[t.dataset.id];if(!k)return;if(!confirm('ลบ '+(k.nick||k.code)+' ? ผลข้อสอบของคนนี้จะเปิดดูไม่ได้อีก'))return;await DB.delKid(k);closeSheet();render()},
   async copy(t){try{await navigator.clipboard.writeText(t.dataset.t);toast('คัดลอกลิงก์แล้ว')}catch(e){prompt('คัดลอกลิงก์นี้',t.dataset.t)}},
   signIn(){const au=firebase.auth(),pv=new firebase.auth.GoogleAuthProvider();pv.setCustomParameters({prompt:'select_account'});
