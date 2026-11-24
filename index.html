@@ -206,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-24T09:20:00+07:00';
+const SITE_UPDATED='2026-11-24T09:22:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -375,7 +375,7 @@ function ring(st,num){const n=st.length,R=17,C=20;let p='';
 function dayStatus(key,d){return orderOf(key,d).map(q=>{if(!key)return 'q';const a=ansOf(key,d,q);return a?(isOk(a,q)?'g':'r'):'e'})}
 
 /* ---------- views ---------- */
-function header(){const k=ME&&!DB.admin?Object.values(KIDS)[0]:null;
+function header(){/* ชื่อเล่นของเจ้าของลิงก์ ขึ้นทุกหน้า (รวมเครื่องที่ล็อกอินโหมดพี่ไว้ แต่ปิดโหมดพี่อยู่) */const k=ME&&!S.bro?(DB.admin?kidByKey(ME):Object.values(KIDS)[0]):null;
   return `<div class="top"><div class="logo" data-a="home"><img src="icon.png" alt=""><h1>Classroom</h1></div><span class="sp"></span>
     
     ${DB.mode==='fb'||DB.mode==='test'?`<button type="button" class="modebtn" data-a="bro" aria-pressed="${S.bro?'true':'false'}"><span class="mdot"></span><span>${S.bro?'โหมดพี่ เปิดอยู่':'โหมดพี่'}</span></button>`:''}</div>
