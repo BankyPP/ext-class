@@ -206,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-28T19:54:00+07:00';
+const SITE_UPDATED='2026-11-28T20:03:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -288,14 +288,21 @@ function persist(){LS.set('st',{view:S.view,m:S.m,day:S.day,qi:S.qi,as:S.as,stat
 const VK=()=>DB.admin&&S.bro?((KIDS[S.as]||{}).key||''):ME;
 
 /* ---------- database ---------- */
+/* 28 พ.ย. 2026: iPhone (Safari/WebKit) บางครั้ง IndexedDB ไม่ตอบตอนเปิดหน้า → Firebase Auth รอค้าง หน้าอยู่ที่ "กำลังโหลด…" ตลอด
+   วิธีแก้แบบ safari-14-idb-fix: เรียก indexedDB.databases() ซ้ำทุก 100 ms จนตอบ (รอไม่เกิน 3 วินาที) ก่อนเริ่ม Firebase */
+function idbReady(){const ua=navigator.userAgent||'';
+  if(!window.indexedDB||!indexedDB.databases||navigator.userAgentData||!/Safari\//.test(ua)||/Chrom(e|ium)\//.test(ua))return Promise.resolve();
+  let iv;return Promise.race([new Promise(r=>{const t=()=>{try{indexedDB.databases().then(r,r)}catch(e){r()}};iv=setInterval(t,100);t()}),new Promise(r=>setTimeout(r,3000))]).then(()=>clearInterval(iv))}
+/* คำตอบที่ยังไม่ถึงเซิร์ฟเวอร์ เก็บไว้ในเครื่องก่อน แล้วส่งซ้ำจนสำเร็จ (เดิมรอ set() ตอบก่อนถึงโชว์เฉลย ถ้าเน็ตสะดุด ปุ่มเหมือนค้าง) */
+const PEND={all:()=>LS.get('pend',{}),put(k,id,d){const p=this.all();p[id]={k,d};LS.set('pend',p)},del(id){const p=this.all();delete p[id];LS.set('pend',p)}};
 const DB={mode:'loading',db:null,user:null,admin:false,un:[],kun:{},
   async init(){
     if(window.TU_TEST){this.mode='test';const T=window.TU_TEST;KIDS=T.kids||{};ANS=T.ans||{};OV=T.ov||{};this.admin=!!T.admin;this.user={isAnonymous:!T.admin};if(!this.admin)S.bro=false;render();return}
     const cfg=window.FIREBASE_CONFIG;
     if(!window.firebase){this.mode='err';this.err='โหลด Firebase ไม่ได้ ตรวจอินเทอร์เน็ตแล้วเปิดหน้าใหม่';render();return}
-    try{if(!firebase.apps.length)firebase.initializeApp(cfg);const au=firebase.auth();
+    try{await idbReady();if(!firebase.apps.length)firebase.initializeApp(cfg);const au=firebase.auth();
       const u=await new Promise(r=>{const un=au.onAuthStateChanged(x=>{un();r(x)})});if(!u)await au.signInAnonymously();
-      this.db=firebase.firestore();this.mode='fb'}
+      this.db=firebase.firestore();this.mode='fb';try{sessionStorage.removeItem('tuBoot')}catch(e){}}
     catch(e){this.mode='err';this.err='เข้าฐานข้อมูลไม่ได้ ('+(e&&e.code||'error')+')';render();return}
     this.db.collection('cls_lessons').onSnapshot(s=>{const o={};s.docs.forEach(x=>{if(x.id.indexOf('tu_')===0)o[x.id.slice(3)]=x.data()});OV=o;render()},()=>{});
     await this.afterAuth();
@@ -309,8 +316,15 @@ const DB={mode:'loading',db:null,user:null,admin:false,un:[],kun:{},
         else{await ref.set({uids:(a.uids||[]).concat(id),names:Object.assign({},a.names||{},{[id]:this.user.displayName||'พี่'})},{merge:true});this.admin=true}
       }catch(e){this.admin=false}}
     if(!this.admin)S.bro=false;
-    this.subs();render();
+    this.subs();render();this.flush();
   },
+  flushing:false,
+  async flush(){if(this.mode!=='fb'||this.flushing)return;const p=PEND.all();if(!Object.keys(p).length)return;this.flushing=true;
+    try{for(const id in p){const {k,d}=p[id],ref=this.db.collection('cls_s_'+k).doc(id);
+      try{await Promise.race([ref.set(d),new Promise((_,rj)=>setTimeout(()=>rj({code:'timeout'}),20000))]);PEND.del(id)}
+      catch(e){if(e&&e.code==='permission-denied'){const sn=await ref.get().catch(()=>null);PEND.del(id);   /* ส่งไปแล้วรอบก่อน (กฎห้ามเขียนทับ) = สำเร็จ */
+        if(!(sn&&sn.exists)){if(ANS[k])delete ANS[k][id];toast('ส่งคำตอบไม่สำเร็จ ลองตอบใหม่');render()}}}}}
+    finally{this.flushing=false}},
   subs(){
     this.un.forEach(f=>{try{f()}catch(e){}});this.un=[];Object.values(this.kun).forEach(f=>{try{f()}catch(e){}});this.kun={};ANS={};KIDS={};REQ={};
     const db=this.db,docs=s=>{const m={};s.docs.forEach(x=>{m[x.id]=Object.assign({},x.data(),{id:x.id})});return m};
@@ -319,12 +333,14 @@ const DB={mode:'loading',db:null,user:null,admin:false,un:[],kun:{},
       this.un.push(db.collection('cls_adminRequests').onSnapshot(s=>{REQ=docs(s);render()},()=>{}));
     }
     if(ME)this.un.push(db.collection('cls_s_'+ME).onSnapshot(s=>{const m={};s.docs.forEach(x=>{const v=Object.assign({},x.data(),{id:x.id});
-        if(x.id==='me'){if(!this.admin&&v.kid)KIDS={[v.kid]:Object.assign({},v,{id:v.kid,key:ME})}}else m[x.id]=v});ANS[ME]=m;render()},()=>{}));
+        if(x.id==='me'){if(!this.admin&&v.kid)KIDS={[v.kid]:Object.assign({},v,{id:v.kid,key:ME})}}else m[x.id]=v});
+        const p=PEND.all();for(const id in p)if(p[id].k===ME&&!m[id])m[id]=p[id].d;ANS[ME]=m;render();this.flush()},()=>{}));
   },
   kidSubs(){const want={};Object.values(KIDS).forEach(k=>{if(KEYRE.test(k.key||''))want[k.key]=1});
     Object.keys(this.kun).forEach(k=>{if(!want[k]){try{this.kun[k]()}catch(e){}delete this.kun[k];delete ANS[k]}});
     Object.keys(want).forEach(k=>{if(this.kun[k]||k===ME&&!this.admin)return;
       this.kun[k]=this.db.collection('cls_s_'+k).onSnapshot(s=>{const m={};s.docs.forEach(x=>{if(x.id!=='me')m[x.id]=Object.assign({},x.data(),{id:x.id})});ANS[k]=m;render()},()=>{})})},
+  addAnswerLocal(key,id,doc){(ANS[key]=ANS[key]||{})[id]=doc;if(this.mode==='fb'){PEND.put(key,id,doc);this.flush()}},
   async addAnswer(key,id,doc){
     if(this.mode==='test'){(ANS[key]=ANS[key]||{})[id]=doc;return}
     (ANS[key]=ANS[key]||{})[id]=doc;
@@ -498,7 +514,7 @@ function viewKids(){if(!S.bro)return viewHome();const ks=Object.values(KIDS).sor
    <p class="muted" style="font-size:14px;margin-top:12px">นักเรียนเปิดเว็บจากลิงก์ส่วนตัวครั้งแรก เครื่องจะจำไว้ ไม่ต้องใช้ลิงก์อีก และจะเห็นแค่ข้อมูลของตัวเอง</p>`}
 function render(){tAcc();
   const app=$('#app');
-  if(DB.mode==='loading'){app.innerHTML='<div class="ld">กำลังโหลด…</div>';return}
+  if(DB.mode==='loading'){app.innerHTML=DB.slow?'<div class="ld">โหลดนานกว่าปกติ<br><button class="btn primary" style="margin-top:12px" onclick="location.reload()">แตะเพื่อโหลดใหม่</button></div>':'<div class="ld">กำลังโหลด…</div>';return}
   let body='';
   if(DB.mode==='err')body=`<div class="banner">${esc(DB.err)}</div>`;
   else if(S.view==='cal')body=viewCal();
@@ -587,8 +603,7 @@ const ACT={
     if(pk==null){S.err='เลือกคำตอบก่อน';const e=$('#qerr');if(e)e.textContent=S.err;return}
     if(ansOf(ME,d,q))return;tAcc();const m=LS.get('ms',{}),id=aid(d,q),now=Date.now(),orig=permOf(ME,d,q)[pk];
     const doc={kind:'tu',date:d,slot:q.slot,qid:q.qid,subj:q.subj,ch:q.ch||'',pick:orig,ms:Math.round(m[id]||0),at:now,ot:dayOf(now)===d};
-    try{await DB.addAnswer(ME,id,doc);delete m[id];LS.set('ms',m)}catch(e){delete (ANS[ME]||{})[id];toast('ส่งคำตอบไม่สำเร็จ ลองใหม่');render();return}
-    render()},
+    DB.addAnswerLocal(ME,id,doc);delete m[id];LS.set('ms',m);render()},
   as(t){S.as=t.dataset.id;render()},
   statKid(t){S.statKid=t.dataset.id;render()},
   edit(t){closeSheet();editForm(t.dataset.d,t.dataset.k)},
@@ -639,7 +654,12 @@ function footInit(){foot(verOf());if(!/github\.io$/.test(location.hostname))retu
 }
 
 /* ---------- boot: data files always fresh (no stale questions) ---------- */
-const loadJs=src=>new Promise(r=>{const s=document.createElement('script');s.src=src+(src.includes('?')?'&':'?')+'t='+Date.now();s.onload=r;s.onerror=r;document.head.appendChild(s)});
+const loadJs=src=>new Promise(r=>{const s=document.createElement('script');s.src=src+(src.includes('?')?'&':'?')+'t='+Date.now();s.onload=r;s.onerror=r;document.head.appendChild(s);setTimeout(r,12000)});
+/* ถ้ายังโหลดไม่เสร็จใน 9 วินาที: โหลดหน้าใหม่ให้เอง 1 ครั้ง · ถ้ายังไม่ได้อีก ขึ้นปุ่มให้กดโหลดใหม่ */
+setTimeout(()=>{if(DB.mode!=='loading')return;let n=0;try{n=+sessionStorage.getItem('tuBoot')||0}catch(e){}
+  if(n<1){try{sessionStorage.setItem('tuBoot','1')}catch(e){}location.reload();return}
+  DB.slow=true;render()},9000);
+addEventListener('online',()=>DB.flush());setInterval(()=>DB.flush(),30000);
 (async()=>{await Promise.all([loadJs('tu/syllabus.js'),loadJs('tu/days.js')]);window.TU_DAYS=window.TU_DAYS||{};footInit();
   if(S.view==='day'&&!S.day)S.view='cal';await DB.init();render();
   window.addEventListener('load',()=>setTimeout(typeset,50))})();
