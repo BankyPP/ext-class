@@ -206,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-28T20:03:00+07:00';
+const SITE_UPDATED='2026-11-28T20:05:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -244,7 +244,9 @@ const PER_DAY=12;
 const syl=s=>(window.TU_SYL&&TU_SYL[s])||[];
 const chName=(s,ch)=>{const r=syl(s).find(x=>x[0]===ch);return r?r[1]:''};
 const LETTERS=['ก','ข','ค','ง'];
-const need=(n,k)=>Math.ceil(n*k/9);   /* เกณฑ์ตั้งจากวันละ 9 ข้อ: ไฟ/เขียว ทำ ≥5 (พี่เลือก 23 พ.ย.) · เหรียญ/aura ถูก ≥7 (เทียบ Morning 12/15) — คิดตามสัดส่วนจำนวนข้อของวันนั้น: 9 ข้อ = 5/7 · 12 ข้อ = 7/10 */
+/* 28 พ.ย. 20:04 พี่เลือก: วันละ 12 ข้อ ไฟ 8/12 เหรียญ 10/12 · วันละ 9 ข้อคงเดิม 5/9 และ 7/9 · จำนวนอื่นคิดตามสัดส่วนของ 9 */
+const NEED_T={9:[5,7],12:[8,10]};
+const need=(n,k)=>{const t=NEED_T[n];return t?(k===LIT_K?t[0]:t[1]):Math.ceil(n*k/9)};   /* เกณฑ์ตั้งจากวันละ 9 ข้อ: ไฟ/เขียว ทำ ≥5 (พี่เลือก 23 พ.ย.) · เหรียญ/aura ถูก ≥7 (เทียบ Morning 12/15) — คิดตามสัดส่วนจำนวนข้อของวันนั้น: 9 ข้อ = 5/7 · 12 ข้อ = 7/10 */
 const LIT_K=5,MED_K=7;
 
 /* ---------- seeded shuffles: fixed per student per day ---------- */
