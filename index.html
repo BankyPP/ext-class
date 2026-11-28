@@ -206,7 +206,7 @@ window.FIREBASE_CONFIG = {
    หน้าแรก = กล่องโปรเจกต์ (ตอนนี้มี TUtoday อย่างเดียว) · หน้าห้องเรียนเดิมลบแล้ว (ย้อนได้ด้วย //undo project tu = git tag pre-project-tu)
    นักเรียนเข้าด้วยลิงก์ส่วนตัว ?s=KEY (รหัส 16 ตัว) เห็นแค่ของตัวเอง · โหมดพี่ = Google login ที่อยู่ใน cls_meta/admins (หรือพี่ของ Baan Suay)
    คำตอบ TUtoday: cls_s_KEY/tu_<วันที่>_<ช่อง>_<qid> (สร้างครั้งเดียว แก้ไม่ได้) · โจทย์ที่พี่ใส่เอง: cls_lessons/tu_<วันที่> {slots:{ช่อง:โจทย์}} */
-const SITE_UPDATED='2026-11-24T09:22:00+07:00';
+const SITE_UPDATED='2026-11-28T19:54:00+07:00';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get(k,d){try{const v=localStorage.getItem('cls6.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('cls6.'+k,JSON.stringify(v))}catch(e){}}};
@@ -236,12 +236,15 @@ const fmtTime=iso=>{const d=new Date(iso);if(isNaN(d))return iso;try{return d.to
 /* ---------- subjects / slots ---------- */
 const SUBJ={phys:{n:'ฟิสิกส์',c:'#2563EB'},chem:{n:'เคมี',c:'#7C3AED'},bio:{n:'ชีววิทยา',c:'#15803D'},math:{n:'คณิตศาสตร์',c:'#C2410C'},eng:{n:'ภาษาอังกฤษ',c:'#0F766E'},thai:{n:'ภาษาไทย',c:'#BE185D'},soc:{n:'สังคมศึกษา',c:'#A16207'}};
 const SUBJ_ORDER=['phys','chem','bio','math','eng','thai','soc'];
-const SLOTS=[['phys','phys'],['chem','chem'],['bio','bio'],['math1','math'],['math2','math'],['eng1','eng'],['eng2','eng'],['thai','thai'],['soc','soc']].map(([k,s])=>({k,s}));
+/* ตั้งแต่ 29 พ.ย. 2026 วันละ 12 ข้อ: เคมี ชีวะ ไทย เพิ่มเป็นวิชาละ 2 (ช่องเดิม chem/bio/thai = ข้อ 1 ยังใช้ key เดิม คำตอบของวันก่อน ๆ จึงไม่หาย) · วันที่ 26–28 พ.ย. มี 9 ข้อเหมือนเดิม */
+const SLOTS=[['phys','phys',0],['chem','chem',1],['chem2','chem',2],['bio','bio',1],['bio2','bio',2],['math1','math',1],['math2','math',2],['eng1','eng',1],['eng2','eng',2],['thai','thai',1],['thai2','thai',2],['soc','soc',0]].map(([k,s,i])=>({k,s,i}));
 const slotSubj=k=>(SLOTS.find(x=>x.k===k)||{}).s;
+const slotNo=k=>(SLOTS.find(x=>x.k===k)||{}).i||0;
+const PER_DAY=12;
 const syl=s=>(window.TU_SYL&&TU_SYL[s])||[];
 const chName=(s,ch)=>{const r=syl(s).find(x=>x[0]===ch);return r?r[1]:''};
 const LETTERS=['ก','ข','ค','ง'];
-const need=(n,k)=>Math.ceil(n*k/9);   /* 9 ข้อ: ไฟ/เขียว ทำ ≥5 (พี่เลือก 23 พ.ย.) · เหรียญ/aura ถูก ≥7 (เทียบ Morning 12/15) */
+const need=(n,k)=>Math.ceil(n*k/9);   /* เกณฑ์ตั้งจากวันละ 9 ข้อ: ไฟ/เขียว ทำ ≥5 (พี่เลือก 23 พ.ย.) · เหรียญ/aura ถูก ≥7 (เทียบ Morning 12/15) — คิดตามสัดส่วนจำนวนข้อของวันนั้น: 9 ข้อ = 5/7 · 12 ข้อ = 7/10 */
 const LIT_K=5,MED_K=7;
 
 /* ---------- seeded shuffles: fixed per student per day ---------- */
@@ -365,11 +368,11 @@ function optBody(v){return isFig(v)?`<span class="ofig">${v}</span>`:md(v).repla
 function typeset(){try{if(window.renderMathInElement){const o={delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false};
   renderMathInElement($('#app'),o);if(!$('#sheet').hidden)renderMathInElement($('#sheet'),o)}}catch(e){}}
 
-/* ---------- ring: 9 equal pieces around the date, from the top going down the left side and back up the right ---------- */
+/* ---------- ring: n equal pieces (9 หรือ 12) around the date, from the top going down the left side and back up the right ---------- */
 function ring(st,num){const n=st.length,R=17,C=20;let p='';
   if(!n)p=`<circle cx="20" cy="20" r="${R}" class="rg0"/>`;
   else if(n===1)p=`<circle cx="20" cy="20" r="${R}" class="sg ${st[0]}"/>`;
-  else{const s=360/n,g=7,P=a=>{const r=a*Math.PI/180;return (C+R*Math.sin(r)).toFixed(2)+' '+(C-R*Math.cos(r)).toFixed(2)};
+  else{const s=360/n,g=n>9?5:7,P=a=>{const r=a*Math.PI/180;return (C+R*Math.sin(r)).toFixed(2)+' '+(C-R*Math.cos(r)).toFixed(2)};
     st.forEach((v,i)=>{const a1=-(i+1)*s+g/2,a2=-i*s-g/2;p+=`<path d="M${P(a1)}A${R} ${R} 0 0 1 ${P(a2)}" class="sg ${v}"/>`})}
   return `<svg viewBox="0 0 40 40" class="ring" aria-hidden="true">${p}<text x="20" y="20.5" class="rn">${num}</text></svg>`}
 function dayStatus(key,d){return orderOf(key,d).map(q=>{if(!key)return 'q';const a=ansOf(key,d,q);return a?(isOk(a,q)?'g':'r'):'e'})}
@@ -383,11 +386,11 @@ function header(){/* ชื่อเล่นของเจ้าของล�
 function viewHome(){const td=today(),key=VK(),qs=dayQs(td),G=game(key);
   const done=key?qs.filter(q=>ansOf(key,td,q)).length:0;
   return `<div class="launch">
-    <button class="proj" data-a="go" data-v="cal"><span class="pt">TU<span>today</span></span><span class="pd">ข้อสอบจำลองเข้าเตรียมอุดมฯ วันละ ${qs.length||9} ข้อ</span>
+    <button class="proj" data-a="go" data-v="cal"><span class="pt">TU<span>today</span></span><span class="pd">ข้อสอบจำลองเข้าเตรียมอุดมฯ วันละ ${qs.length||PER_DAY} ข้อ</span>
       <span class="ps">${qs.length?(key?`วันนี้ทำไป ${done}/${qs.length} · 🔥 ${G.fire} · 🏅 ${G.medals}`:'ชุดวันนี้พร้อมแล้ว'):'วันนี้ยังไม่มีโจทย์'}</span></button>
     ${S.bro?`<button class="proj tool" data-a="go" data-v="kids"><span class="pt">จัดการนักเรียน</span><span class="pd">เพิ่มนักเรียน คัดลอกลิงก์ส่วนตัว และสิทธิ์โหมดพี่</span><span class="ps">${Object.keys(KIDS).length} คน${Object.keys(REQ).length?` · คำขอสิทธิ์ ${Object.keys(REQ).length}`:''}</span></button>`:''}
   </div>`}
-function gameHTML(G){return `<span class="game"><span class="fire${G.on?' on':''}${G.risk?' frz':''}" title="${G.risk?'ไฟกำลังจะดับ: เมื่อวานไฟไม่ติด ถ้าวันนี้ไม่ทำ พรุ่งนี้ไฟเหลือ 0':G.on?'วันนี้ไฟติดแล้ว':'วันนี้ยังไม่ติดไฟ (ทำในเวลา ≥ 5 ข้อ)'}"><span class="ff">🔥</span><i>${G.fire}</i></span><span title="วันที่ได้เหรียญ: ถูก ≥ 7 ข้อในเวลา">🏅<i>${G.medals}</i></span></span>`}
+function gameHTML(G){const tn=dayQs(today()).length||PER_DAY,lk=need(tn,LIT_K),mk=need(tn,MED_K);return `<span class="game"><span class="fire${G.on?' on':''}${G.risk?' frz':''}" title="${G.risk?'ไฟกำลังจะดับ: เมื่อวานไฟไม่ติด ถ้าวันนี้ไม่ทำ พรุ่งนี้ไฟเหลือ 0':G.on?'วันนี้ไฟติดแล้ว':'วันนี้ยังไม่ติดไฟ (ทำในเวลา ≥ ${lk} ข้อ)'}"><span class="ff">🔥</span><i>${G.fire}</i></span><span title="วันที่ได้เหรียญ: ถูก ≥ ${mk} จาก ${tn} ข้อในเวลา">🏅<i>${G.medals}</i></span></span>`}
 function kidPicker(cur,act,allLabel){const ks=Object.values(KIDS).sort((a,b)=>(a.order||0)-(b.order||0)||String(a.nick||a.code).localeCompare(String(b.nick||b.code)));
   return `<div class="kidchips"><span class="chip ${!cur?'on':''}" data-a="${act}" data-id="">${allLabel}</span>${ks.map(k=>`<span class="chip ${cur===k.id?'on':''}" data-a="${act}" data-id="${esc(k.id)}"><span class="dot" style="--c:${esc(k.color||SWATCHES[0])}"></span>${esc(k.nick||k.code)}</span>`).join('')}</div>`}
 function viewCal(){const key=VK(),td=today(),G=game(key),[Y,Mo]=S.m.split('-').map(Number);
@@ -398,7 +401,7 @@ function viewCal(){const key=VK(),td=today(),G=game(key),[Y,Mo]=S.m.split('-').m
   for(let i=0;i<lead;i++)cells+=`<span class="cday out"></span>`;
   for(let i=1;i<=nd;i++){const d=S.m+'-'+String(i).padStart(2,'0'),fut=d>td,qs=dayQs(d).length;
     cells+=`<button class="cday${fut?' fut':''}${d===td?' td':''}" data-a="day" data-d="${d}" ${!qs&&!S.bro?'disabled':''} aria-label="${thDate(d,true)}">${ring(qs?dayStatus(key,d):[],i)}</button>`}
-  const doneT=key?tq.filter(q=>ansOf(key,td,q)).length:0,litN=need(tq.length||9,LIT_K);
+  const doneT=key?tq.filter(q=>ansOf(key,td,q)).length:0,litN=need(tq.length||PER_DAY,LIT_K);
   const todo=!tq.length?'วันนี้ยังไม่มีโจทย์':!key?(S.bro?'เลือกนักเรียนด้านล่างเพื่อดูวงกลมและไฟของคนนั้น':'เปิดจากลิงก์ส่วนตัวที่พี่ส่งให้ก่อน ถึงจะทำข้อสอบได้')
     :D.ot>=tq.length?`✓ ครบ ${tq.length}/${tq.length} ข้อแล้ว (ถูก ${D.otr} ข้อ)`:D.ot>=litN?`🔥 ไฟติดแล้ว · ทำไป ${D.ot}/${tq.length} (ถูก ${D.otr} ข้อ)`:`วันนี้ทำไป ${D.ot}/${tq.length} (ถูก ${D.otr} ข้อ) — อีก ${litN-D.ot} ข้อไฟติด 🔥`;
   return `${!ME&&!S.bro?`<div class="banner">ยังไม่ได้เปิดจากลิงก์ส่วนตัว ดูปฏิทินได้ แต่ทำข้อสอบไม่ได้ ขอลิงก์จากพี่ก่อนนะ</div>`:''}
@@ -472,7 +475,7 @@ function viewStats(){const bro=S.bro,kid=bro?KIDS[S.statKid]:null,key=bro?(kid&&
     <div class="kpi"><div class="l">เวลาเฉลี่ยต่อข้อ</div><div class="v">${s.avg?Math.round(s.avg/1000)+' วิ':'–'}</div></div>
     <div class="kpi"><div class="l">🔥 ไฟตอนนี้ / สูงสุด</div><div class="v">${s.G.fire} / ${s.G.best}</div></div>
     <div class="kpi"><div class="l">🏅 เหรียญ</div><div class="v">${s.G.medals}</div></div>
-    <div class="kpi"><div class="l">วันที่ทำครบ 9 ข้อ</div><div class="v">${s.full}</div></div>
+    <div class="kpi"><div class="l">วันที่ทำครบทุกข้อ</div><div class="v">${s.full}</div></div>
     <div class="kpi"><div class="l">ข้อที่ข้าม (วันที่ผ่านไปแล้ว)</div><div class="v">${s.skipped}</div></div>
     <div class="kpi"><div class="l">ทำย้อนหลัง</div><div class="v">${s.late}</div></div>
     <div class="kpi"><div class="l">ข้อหลอก</div><div class="v">${pct(s.trick.r,s.trick.n)}</div><div class="l">${s.trick.r}/${s.trick.n} ข้อ</div></div>
@@ -542,7 +545,7 @@ function chOfDay(d,subj,skip){return dayQs(d).filter(q=>q.subj===subj&&q.slot!==
 function editForm(d,k){const sub=slotSubj(k),cur=dayQs(d).find(q=>q.slot===k)||{},base=(window.TU_CLONE||{})[d]||d;
   const opts=syl(sub).map(([id,n])=>`<option value="${id}" ${cur.ch===id?'selected':''}>${esc(n)}</option>`).join('');
   openSheet(`<h3>${cur.qid?'แก้':'ใส่'}โจทย์ · ${thDate(d,true)}</h3>
-   <label class="fld"><span>ช่อง</span><select id="eSlot">${SLOTS.map(s=>`<option value="${s.k}" ${s.k===k?'selected':''}>${SUBJ[s.s].n}${/\d$/.test(s.k)?' ข้อ '+s.k.slice(-1):''}</option>`).join('')}</select></label>
+   <label class="fld"><span>ช่อง</span><select id="eSlot">${SLOTS.map(s=>`<option value="${s.k}" ${s.k===k?'selected':''}>${SUBJ[s.s].n}${s.i?' ข้อ '+s.i:''}</option>`).join('')}</select></label>
    <label class="fld"><span>บท</span><select id="eCh"><option value="">— เลือกบท —</option>${opts}</select></label>
    <div id="eWarn"></div>
    <label class="fld"><span>ความยาก (1–5 ดาว)</span><input id="eStars" type="number" min="1" max="5" value="${cur.stars||4}"></label>
@@ -564,7 +567,7 @@ function editForm(d,k){const sub=slotSubj(k),cur=dayQs(d).find(q=>q.slot===k)||{
   $('#eCh').onchange=chk;$('#eSlot').onchange=()=>{const k2=val('eSlot');closeSheet();editForm(d,k2)};chk()}
 function dayEditList(d){const qs=dayQs(d);
   openSheet(`<h3>โจทย์ทั้งวัน · ${thDate(d,true)}</h3><div class="card">${SLOTS.map(sl=>{const q=qs.find(x=>x.slot===sl.k);
-    return `<div class="krow"><span class="dot" style="--c:${SUBJ[sl.s].c}"></span><span class="nm"><b>${SUBJ[sl.s].n}${/\d$/.test(sl.k)?' '+sl.k.slice(-1):''}</b> <span class="muted">${q?esc(chName(sl.s,q.ch)||'ไม่ระบุบท')+(q.own?' · พี่ใส่เอง':''):'ยังไม่มีโจทย์'}</span></span><button class="btn sm" data-a="edit" data-d="${d}" data-k="${sl.k}">${q?'แก้':'ใส่'}</button></div>`}).join('')}</div>
+    return `<div class="krow"><span class="dot" style="--c:${SUBJ[sl.s].c}"></span><span class="nm"><b>${SUBJ[sl.s].n}${sl.i?' '+sl.i:''}</b> <span class="muted">${q?esc(chName(sl.s,q.ch)||'ไม่ระบุบท')+(q.own?' · พี่ใส่เอง':''):'ยังไม่มีโจทย์'}</span></span><button class="btn sm" data-a="edit" data-d="${d}" data-k="${sl.k}">${q?'แก้':'ใส่'}</button></div>`}).join('')}</div>
    <div style="margin-top:12px"><button class="btn" data-a="close">ปิด</button></div>`)}
 
 /* ---------- actions ---------- */
